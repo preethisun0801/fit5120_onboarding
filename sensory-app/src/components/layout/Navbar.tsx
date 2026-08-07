@@ -12,10 +12,10 @@ export default function Navbar() {
             </Link>
             <nav>
                 <Link to="/">Plan your Journey</Link>
-                <Link to="/pages/Way">Live Map</Link>
-                <Link to="/pages/Routes">Quiet Spaces</Link>
-                <Link to="/pages/Settings">Settings</Link>
-                <Link to="/pages/About">About</Link>
+                <Link to="/Way">Live Map</Link>
+                <Link to="/Routes">Quiet Spaces</Link>
+                <Link to="/Settings">Settings</Link>
+                <Link to="/About">About</Link>
             </nav>
         </div>
         </header>
