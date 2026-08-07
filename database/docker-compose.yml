@@ -1,0 +1,75 @@
+# TA17 Onboarding database
+#
+# You do not need to install PostgreSQL. With Docker Desktop installed, one
+# command gives you a database identical to the one the data workstream uses.
+#
+# Folder structure — keep these together, and do not rename `init`:
+#
+#   ta17-db/
+#   ├── docker-compose.yml          <- this file
+#   └── init/
+#       └── ta17_onboarding.sql     <- the database dump goes here
+#
+# Start it:
+#   cd ta17-db
+#   docker compose up -d
+#
+# On first start, everything in init/ is executed automatically and the database
+# is built. Allow a minute or two — there are over 250,000 rows to import.
+#
+# Watch the progress:
+#   docker compose logs -f db
+# Wait for "database system is ready to accept connections", then press
+# Control + C to stop following the log. The container keeps running.
+#
+# Connection details:
+#   host: localhost   port: 5432
+#   database: ta17_onboarding
+#   user: ta17        password: ta17_dev_password
+#
+# Open a SQL session:
+#   docker compose exec db psql -U ta17 -d ta17_onboarding
+#
+# Stop it, keeping the data:
+#   docker compose down
+#
+# Stop and wipe, so the next start re-imports from init/:
+#   docker compose down -v
+#
+# Note: init/ only runs when the data volume is empty. Dropping in a newer .sql
+# and restarting does nothing — run `docker compose down -v` first.
+#
+# Note: port 5432 can only be used by one thing at a time. If you also have
+# Postgres.app or another local PostgreSQL running, stop it first.
+
+services:
+  db:
+    image: postgres:18
+    container_name: ta17_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ta17_onboarding
+      POSTGRES_USER: ta17
+      # Local development only. This must be replaced and read from an
+      # environment variable before anything is deployed, and this file must not
+      # be committed with a real credential in it — same rule as the rest of our
+      # secrets handling in the Security Considerations document.
+      POSTGRES_PASSWORD: ta17_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      # Anything in here is executed on first start
+      - ./init:/docker-entrypoint-initdb.d:ro
+      # Persists the data, so it survives the container being removed.
+      # Note that from PostgreSQL 18 the mount point is /var/lib/postgresql,
+      # not /var/lib/postgresql/data as in earlier versions. Getting this wrong
+      # makes the container exit immediately after starting.
+      - ta17_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ta17 -d ta17_onboarding"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ta17_pgdata:
