@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run load_data.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/load_data.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Run add_indoor_refuges.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/add_indoor_refuges.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

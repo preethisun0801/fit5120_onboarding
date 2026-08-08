@@ -35,10 +35,10 @@ from psycopg2.extras import execute_values
 # Configuration
 # ------------------------------------------------------------
 
-DB = dict(dbname="ta17_onboarding", host="localhost", port=5432)
+#DB = dict(dbname="ta17_onboarding", host="localhost", port=5432)
 # If you are running the database in Docker, add the credentials:
-# DB = dict(dbname="ta17_onboarding", host="localhost", port=5432,
-#           user="ta17", password="ta17_dev_password")
+DB = dict(dbname="ta17_onboarding", host="localhost", port=5432,
+user="ta17", password="ta17_dev_password")
 
 BASE = "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog"
 TIMEOUT = 300

@@ -27,7 +27,8 @@ import sys
 
 import psycopg2
 
-DB = dict(dbname="ta17_onboarding", host="localhost", port=5432)
+DB = dict(dbname="ta17_onboarding", host="localhost", port=5432,
+user="ta17", password="ta17_dev_password")
 
 
 # ------------------------------------------------------------
