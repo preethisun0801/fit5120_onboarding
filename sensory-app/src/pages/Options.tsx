@@ -6,7 +6,7 @@ import { api, type Refuge, type NearbySensor } from "../lib/api";
 type NavState = {
   lat: number;
   lon: number;
-  preferences: { avoidCrowds: boolean; avoidNoise: boolean; indoorOnly: boolean };
+  destination?: string;
 };
 
 export default function Options() {
@@ -18,18 +18,14 @@ export default function Options() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!state) return; // no location passed — see note below
+    if (!state) return;
     setLoading(true);
     Promise.all([
       api.getRefuges(),
       api.getNearbySensors(state.lat, state.lon, 500),
     ])
       .then(([r, s]) => {
-        let filtered = r;
-        if (state.preferences.indoorOnly) {
-          filtered = filtered.filter((x) => x.is_indoor);
-        }
-        setRefuges(filtered);
+        setRefuges(r);
         setSensors(s);
       })
       .catch((e) => setError(String(e)))
@@ -46,11 +42,11 @@ export default function Options() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 pt-24">
+    <div className="max-w-2xl mx-auto px-6 pt-24 pb-24 md:pb-6">
       <h1 className="text-2xl font-semibold mb-4">Options near you</h1>
 
       {loading && <p>Loading...</p>}
-      {error && <p className="text-red-400">{error}</p>}
+      {error && <p className="text-[var(--color-danger)]">{error}</p>}
 
       <ul className="space-y-3">
         {refuges.map((r) => (

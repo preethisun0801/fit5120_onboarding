@@ -3,31 +3,75 @@
 @theme {
   --font-sans: "Geist", system-ui, sans-serif;
 
-  --color-background: #0a0a0a;
-  --color-foreground: #fafafa;
-  --color-muted: #a1a1aa;
-  --color-border: #27272a;
-  --color-card: #18181b;
-  --color-accent: #a3e635;
-  --color-accent-hover: #84cc16;
+  /* Light (default) */
+  --color-background: #FAFAF8;
+  --color-foreground: #14171F;
+  --color-muted: #6B7280;
+  --color-muted-bg: #F1F1EE;
+  --color-border: #E5E5E1;
+  --color-card: #FFFFFF;
+
+  /* Interactive accent — calm blue, used for active nav / links only */
+  --color-accent: #2F5FE0;
+  --color-accent-bg: #EAF0FE;
+
+  /* Primary action — near-black navy, not a bright color, stays quiet */
+  --color-primary: #14171F;
+  --color-primary-foreground: #FFFFFF;
+
+  /* Route highlight — the one warm note in the palette */
+  --color-route: #F5C518;
+
+  /* Crowd scale — value-based, not hue-based (see rationale in comments) */
+  --color-crowd-low: #D4D4D2;
+  --color-crowd-moderate: #6B7280;
+  --color-crowd-high: #1F2430;
+
+  --color-success: #2F8F5B;
+  --color-danger: #C2453C;
 }
+
+/* Dark mode scaffold — toggled later via a `dark` class on <html> */
+.dark {
+  --color-background: #0F1115;
+  --color-foreground: #F4F4F2;
+  --color-muted: #9CA3AF;
+  --color-muted-bg: #1B1E24;
+  --color-border: #2A2D34;
+  --color-card: #171A20;
+
+  --color-accent: #6E93F7;
+  --color-accent-bg: #1C2740;
+
+  --color-primary: #F4F4F2;
+  --color-primary-foreground: #14171F;
+
+  --color-crowd-low: #33363D;
+  --color-crowd-moderate: #6B7280;
+  --color-crowd-high: #E5E5E1;
+}
+
 @layer base {
   html {
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-variant-numeric: tabular-nums;
   }
 
   body {
     margin: 0;
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Override Better Auth skeleton colors */
-  [data-slot="skeleton"],
-  .animate-pulse {
-    background-color: var(--color-border) !important;
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
