@@ -534,7 +534,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const TOTAL_TIMEOUT_MS = 20_000;
 
-    const work = async () => {
+    const work = (async () => {
       const nums: number[] = [
         Number(req.query.start_lat),
         Number(req.query.start_lon),
@@ -634,7 +634,7 @@ router.get(
         },
         routes: scored
       });
-    };
+    })();
 
     const timeout = new Promise((_, reject) =>
       setTimeout(

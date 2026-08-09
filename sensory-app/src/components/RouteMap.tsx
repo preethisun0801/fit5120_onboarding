@@ -136,34 +136,31 @@ export default function RouteMap({
       }).addTo(group);
 
       if (showWorst && active.worst_cutoff !== null) {
-        const cutoff = active.worst_cutoff;
-        active.points
-          .filter((p) => p.score !== null && p.score >= cutoff)
-          .forEach((p) => {
-            // A low-confidence "busiest stretch" marker is a weak, distant reading
-            // making a strong claim — it should look less certain, not equally
-            // alarming, as one taken right where the sensor actually sits.
-            const radius = 5 + p.confidence * 4; // 5–9px
-            const fillOpacity = 0.2 + p.confidence * 0.35; // 0.2–0.55
-            const confidencePct = Math.round(p.confidence * 100);
+  const cutoff = active.worst_cutoff;
+  active.points
+    .filter((p) => p.score !== null && p.score >= cutoff)
+    .forEach((p) => {
+      const radius = 5 + p.confidence * 4; // 5–9px
+      const fillOpacity = 0.55 + p.confidence * 0.35; // 0.55–0.9 — always visible, still gradates
+      const confidencePct = Math.round(p.confidence * 100);
 
-            L.circleMarker([p.lat, p.lon], {
-              radius,
-              color: highlight,
-              weight: p.confidence >= 0.5 ? 3 : 2,
-              fillColor: highlight,
-              fillOpacity,
-              dashArray: p.confidence < 0.4 ? "3,3" : undefined
-            })
-              .bindTooltip(
-                p.sensor
-                  ? `Busiest stretch — near ${p.sensor} (${confidencePct}% confidence)`
-                  : "Busiest stretch",
-                { direction: "top" }
-              )
-              .addTo(group);
-          });
-      }
+      L.circleMarker([p.lat, p.lon], {
+        radius,
+        color: "#8a6a00", // fixed darker amber stroke — stays legible regardless of fill opacity
+        weight: p.confidence >= 0.5 ? 3 : 2,
+        fillColor: highlight,
+        fillOpacity,
+        dashArray: p.confidence < 0.4 ? "3,3" : undefined,
+      })
+        .bindTooltip(
+          p.sensor
+            ? `Busiest stretch — near ${p.sensor} (${confidencePct}% confidence)`
+            : "Busiest stretch",
+          { direction: "top" }
+        )
+        .addTo(group);
+    });
+}
 
       if (active.basis === "no data") {
         const mid = active.geometry[Math.floor(active.geometry.length / 2)];
