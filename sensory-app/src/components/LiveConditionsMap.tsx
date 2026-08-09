@@ -33,7 +33,13 @@ type LiveSensor = {
 
 type LiveResponse = {
   reference_time: string;
-  summary: { total: number; Low: number; Moderate: number; High: number; dominant: Band };
+  summary: {
+    total: number;
+    Low: number;
+    Moderate: number;
+    High: number;
+    dominant: Band;
+  };
   sensors: LiveSensor[];
 };
 
@@ -67,17 +73,25 @@ function refugeIcon(indoor: boolean, fill: string) {
              <circle cx="12" cy="12" r="11" fill="${fill}"/>${glyph}
            </svg>`,
     iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconAnchor: [10, 10]
   });
 }
-
 
 export default function LiveConditionsMap({
   className = "",
   interactive = true,
+  onSummary
 }: {
   className?: string;
   interactive?: boolean;
+  onSummary?: (
+    summary: {
+      band: "Low" | "Moderate" | "High";
+      low: number;
+      moderate: number;
+      high: number;
+    } | null
+  ) => void;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -99,7 +113,7 @@ export default function LiveConditionsMap({
       scrollWheelZoom: interactive,
       doubleClickZoom: interactive,
       boxZoom: interactive,
-      keyboard: interactive,
+      keyboard: interactive
     }).setView([-37.8136, 144.9631], 14);
 
     map.current = mapInstance;
@@ -111,7 +125,7 @@ export default function LiveConditionsMap({
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
           '&copy; <a href="https://carto.com/attributions">CARTO</a> | ' +
           "Sensor data &copy; City of Melbourne (CC BY 4.0)",
-        maxZoom: 19,
+        maxZoom: 19
       }
     ).addTo(mapInstance);
 
@@ -141,18 +155,35 @@ export default function LiveConditionsMap({
       fetch(`${BASE_URL}/live/refuges`).then((r) => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json() as Promise<LiveRefuge[]>;
-      }),
-    ])
-      .then(([live, rf]) => {
-        if (cancelled) return;
-        setData(live);
-        setRefuges(rf);
       })
-      .catch(() => !cancelled && setError("Live conditions are unavailable."));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    ]).then(([live, rf]) => {
+      if (cancelled) return;
+      setData(live);
+      setRefuges(rf);
+
+      if (onSummary) {
+        const sensors = live.sensors ?? [];
+        if (sensors.length === 0) {
+          onSummary(null);
+        } else {
+          const counts = { Low: 0, Moderate: 0, High: 0 };
+          for (const s of sensors) counts[s.band]++;
+          // Overall band = whichever level has the most sensors reporting it —
+          // a simple majority vote rather than averaging raw scores, so one
+          // extreme outlier sensor can't skew the headline summary.
+          const band = (Object.keys(counts) as (keyof typeof counts)[]).reduce(
+            (a, b) => (counts[a] >= counts[b] ? a : b)
+          );
+          onSummary({
+            band,
+            low: counts.Low,
+            moderate: counts.Moderate,
+            high: counts.High
+          });
+        }
+      }
+    });
+  });
 
   useEffect(() => {
     if (!map.current || !layer.current || !data) return;
@@ -160,7 +191,7 @@ export default function LiveConditionsMap({
     const scale: Record<Band, string> = {
       Low: token("--color-crowd-low", "#D4D4D2"),
       Moderate: token("--color-crowd-moderate", "#6B7280"),
-      High: token("--color-crowd-high", "#1F2430"),
+      High: token("--color-crowd-high", "#1F2430")
     };
     const accent = token("--color-accent", "#2F5FE0");
     const muted = token("--color-muted", "#6B7280");
@@ -177,7 +208,7 @@ export default function LiveConditionsMap({
         color: scale[s.band],
         weight: 1,
         fillColor: scale[s.band],
-        fillOpacity: 0.75,
+        fillOpacity: 0.75
       })
         .bindPopup(
           `<div style="font-family:Geist,system-ui,sans-serif;min-width:170px">
@@ -218,9 +249,7 @@ export default function LiveConditionsMap({
         }`}
       />
 
-      {error && (
-        <p className="text-sm text-[var(--color-danger)]">{error}</p>
-      )}
+      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
 
       {interactive && data && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--color-muted)]">
@@ -250,13 +279,13 @@ export default function LiveConditionsMap({
 
       {interactive && data && (
         <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-          Each sensor is compared with its own history for this hour and weekday,
-          so a busy street at midday can read calmer than a quiet one at
-          midnight. As at{" "}
+          Each sensor is compared with its own history for this hour and
+          weekday, so a busy street at midday can read calmer than a quiet one
+          at midnight. As at{" "}
           {new Date(data.reference_time).toLocaleString("en-AU", {
             weekday: "short",
             hour: "numeric",
-            minute: "2-digit",
+            minute: "2-digit"
           })}
           .
         </p>

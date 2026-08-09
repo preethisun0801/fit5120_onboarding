@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MapPin,
@@ -17,6 +17,12 @@ import AddressAutocomplete, {
 
 export default function Home() {
   const navigate = useNavigate();
+  const [crowdSummary, setCrowdSummary] = useState<{
+    band: "Low" | "Moderate" | "High";
+    low: number;
+    moderate: number;
+    high: number;
+  } | null>(null);
   const [from, setFrom] = useState<LatLon | null>(null);
   const [fromText, setFromText] = useState("");
   const [to, setTo] = useState<LatLon | null>(null);
@@ -162,29 +168,30 @@ export default function Home() {
 
         <div className="mt-5 md:hidden">
           <p className="text-sm font-medium mb-2">Conditions right now</p>
-          <LiveConditionsMap className="h-[280px]" />
+          <LiveConditionsMap
+            className="flex-1 min-h-0"
+            onSummary={setCrowdSummary}
+          />
         </div>
 
         <div className="hidden md:block mt-6">
-          <ConditionsRow />
+          <ConditionsRow summary={crowdSummary} />
         </div>
       </div>
 
       <div className="hidden md:flex md:flex-col p-6 min-h-0">
         <p className="text-sm font-medium mb-3">Conditions right now</p>
-        <LiveConditionsMap className="flex-1 min-h-0" />
+        <LiveConditionsMap
+          className="h-32 [&>div]:min-h-0"
+          interactive={false}
+          onSummary={setCrowdSummary}
+        />
       </div>
     </div>
   );
 }
 
-function Field({
-  label,
-  children
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="text-xs text-[var(--color-muted)] mb-1 block">
@@ -197,17 +204,32 @@ function Field({
   );
 }
 
-function ConditionsRow() {
+function ConditionsRow({
+  summary
+}: {
+  summary: {
+    band: "Low" | "Moderate" | "High";
+    low: number;
+    moderate: number;
+    high: number;
+  } | null;
+}) {
+  const level = summary
+    ? (summary.band.toLowerCase() as "low" | "moderate" | "high")
+    : "moderate";
+  const label = summary ? `${summary.band} crowds` : "Checking conditions…";
+  const detail = summary
+    ? `${summary.low} sensor${summary.low === 1 ? "" : "s"} quiet, ${summary.moderate} moderate, ${summary.high} busy right now.`
+    : "Loading live sensor data.";
+
   return (
     <div className="flex items-center gap-3 pt-3 mt-3 border-t border-[var(--color-border)]">
       <Users className="w-5 h-5 text-[var(--color-muted)]" />
       <div className="flex-1">
         <p className="text-sm font-medium flex items-center gap-1.5">
-          Moderate crowds <CrowdDot level="moderate" />
+          {label} {summary && <CrowdDot level={level} />}
         </p>
-        <p className="text-xs text-[var(--color-muted)]">
-          Crowd levels are moderate in most areas.
-        </p>
+        <p className="text-xs text-[var(--color-muted)]">{detail}</p>
       </div>
       <ChevronRight className="w-4 h-4 text-[var(--color-muted)]" />
     </div>

@@ -7,6 +7,7 @@ import pedestrianRouter from "./routers/pedestrian";
 import routesRouter from "./routers/routes";
 import liveRouter from "./routers/live";
 import geocodeRouter from "./routers/geocode";
+import { startRefreshJob } from "./jobs/refreshSensorData";
 
 const app = express();
 
@@ -30,4 +31,7 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`API running on http://localhost:${PORT}`);
+  startRefreshJob();
+});
