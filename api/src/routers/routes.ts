@@ -42,7 +42,7 @@ const W_NOISE = 0.3;
 // Sensor coverage is limited to the City of Melbourne, so requests outside it
 // cannot be scored. Validating the area also satisfies the coordinate-range
 // check in our security plan.
-const BOUNDS = { minLat: -37.87, maxLat: -37.76, minLon: 144.87, maxLon: 145.02 };
+const BOUNDS = { minLat: -38.0, maxLat: -37.7, minLon: 144.8, maxLon: 145.15 };
 
 // ---------------------------------------------------------------- types
 

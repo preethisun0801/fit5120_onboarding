@@ -6,6 +6,7 @@ import noiseRouter from "./routers/noise";
 import pedestrianRouter from "./routers/pedestrian";
 import routesRouter from "./routers/routes";
 import liveRouter from "./routers/live";
+import geocodeRouter from "./routers/geocode";
 
 const app = express();
 
@@ -18,7 +19,7 @@ app.use("/refuges", refugesRouter);
 app.use("/noise", noiseRouter);
 app.use("/pedestrian", pedestrianRouter);
 app.use("/live", liveRouter);
-
+app.use("/geocode", geocodeRouter);
 app.get("/", (_req, res) => res.json({ status: "ok", message: "API is running" }));
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
