@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Navigation, Clock, Users, ChevronRight, LocateFixed } from "lucide-react";
+import {
+  MapPin,
+  Navigation,
+  Clock,
+  Users,
+  ChevronRight,
+  LocateFixed
+} from "lucide-react";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot.tsx";
 import LiveConditionsMap from "../components/LiveConditionsMap";
-import AddressAutocomplete, { type LatLon } from "../components/AddressAutocomplete.tsx";
+import AddressAutocomplete, {
+  type LatLon
+} from "../components/AddressAutocomplete.tsx";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -13,6 +22,8 @@ export default function Home() {
   const [to, setTo] = useState<LatLon | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [leaveMode, setLeaveMode] = useState<"now" | "later">("now");
+  const [leaveTime, setLeaveTime] = useState("");
 
   function useCurrentLocation() {
     setError(null);
@@ -24,7 +35,11 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        setFrom({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "Your Current Location" });
+        setFrom({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          label: "Your Current Location"
+        });
         setFromText("Your Current Location");
       },
       () => {
@@ -37,15 +52,38 @@ export default function Home() {
   function handleFindRoutes() {
     setError(null);
     if (!from) {
-      setError("Set a starting point — or tap the location icon to use where you are.");
+      setError(
+        "Set a starting point — or tap the location icon to use where you are."
+      );
       return;
     }
     if (!to) {
       setError("Pick a destination from the suggestions list.");
       return;
     }
+
+    let plannedTime: string | null = null;
+    if (leaveMode === "later") {
+      if (!leaveTime) {
+        setError("Pick a departure time, or switch back to Leave now.");
+        return;
+      }
+      const [h, m] = leaveTime.split(":").map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); // rolls to tomorrow if that time already passed today
+      plannedTime = d.toISOString();
+    }
+
     navigate("/Options", {
-      state: { lat: from.lat, lon: from.lon, destLat: to.lat, destLon: to.lon, destination: to.label },
+      state: {
+        lat: from.lat,
+        lon: from.lon,
+        destLat: to.lat,
+        destLon: to.lon,
+        destination: to.label,
+        plannedTime
+      }
     });
   }
 
@@ -83,14 +121,40 @@ export default function Home() {
             />
           </Field>
 
-          <Field label="Leave">
-            <Clock className="w-4 h-4 text-[var(--color-muted)]" />
-            <span>Leave now</span>
-          </Field>
+          <label className="block">
+            <span className="text-xs text-[var(--color-muted)] mb-1 block">
+              Leave
+            </span>
+            <div className="flex items-center gap-2 border border-[var(--color-border)] rounded-lg px-3 py-2.5">
+              <Clock className="w-4 h-4 text-[var(--color-muted)] shrink-0" />
+              <select
+                value={leaveMode}
+                onChange={(e) =>
+                  setLeaveMode(e.target.value as "now" | "later")
+                }
+                className="bg-transparent outline-none text-sm"
+              >
+                <option value="now">Leave now</option>
+                <option value="later">Leave at…</option>
+              </select>
+              {leaveMode === "later" && (
+                <input
+                  type="time"
+                  value={leaveTime}
+                  onChange={(e) => setLeaveTime(e.target.value)}
+                  className="bg-transparent outline-none text-sm ml-auto"
+                />
+              )}
+            </div>
+          </label>
         </div>
 
-        {locating && <p className="text-[var(--color-muted)] text-sm mt-3">Finding you…</p>}
-        {error && <p className="text-[var(--color-danger)] text-sm mt-3">{error}</p>}
+        {locating && (
+          <p className="text-[var(--color-muted)] text-sm mt-3">Finding you…</p>
+        )}
+        {error && (
+          <p className="text-[var(--color-danger)] text-sm mt-3">{error}</p>
+        )}
 
         <Button className="w-full mt-5" onClick={handleFindRoutes}>
           Find sensory-aware routes
@@ -114,10 +178,18 @@ export default function Home() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="text-xs text-[var(--color-muted)] mb-1 block">{label}</span>
+      <span className="text-xs text-[var(--color-muted)] mb-1 block">
+        {label}
+      </span>
       <div className="flex items-center gap-2 border border-[var(--color-border)] rounded-lg px-3 py-2.5">
         {children}
       </div>
@@ -133,7 +205,9 @@ function ConditionsRow() {
         <p className="text-sm font-medium flex items-center gap-1.5">
           Moderate crowds <CrowdDot level="moderate" />
         </p>
-        <p className="text-xs text-[var(--color-muted)]">Crowd levels are moderate in most areas.</p>
+        <p className="text-xs text-[var(--color-muted)]">
+          Crowd levels are moderate in most areas.
+        </p>
       </div>
       <ChevronRight className="w-4 h-4 text-[var(--color-muted)]" />
     </div>

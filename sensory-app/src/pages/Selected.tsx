@@ -1,7 +1,14 @@
 // sensory-app/src/pages/Selected.tsx
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Volume2, TreePine, Clock, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  Volume2,
+  TreePine,
+  Clock,
+  AlertCircle
+} from "lucide-react";
 import type { ScoredRoute } from "../lib/api";
 import RouteMap from "../components/RouteMap";
 import Card from "../components/ui/Card";
@@ -15,11 +22,14 @@ type NavState = {
   end: [number, number];
   destination?: string;
   referenceTime: string | null;
+  plannedTime?: string | null;
 };
 
 const LOW_COVERAGE_THRESHOLD = 0.3;
 
-function bandToCrowdLevel(band: ScoredRoute["band"]): "low" | "moderate" | "high" {
+function bandToCrowdLevel(
+  band: ScoredRoute["band"]
+): "low" | "moderate" | "high" {
   if (band === "Low") return "low";
   if (band === "Moderate") return "moderate";
   return "high";
@@ -36,7 +46,9 @@ function formatDistance(meters: number) {
 export default function Selected() {
   const { state } = useLocation() as { state: NavState | null };
   const navigate = useNavigate();
-  const [selectedId, setSelectedId] = useState<number | null>(state?.selectedId ?? null);
+  const [selectedId, setSelectedId] = useState<number | null>(
+    state?.selectedId ?? null
+  );
 
   if (!state || !state.routes?.length) {
     return (
@@ -49,7 +61,8 @@ export default function Selected() {
     );
   }
 
-  const active = state.routes.find((r) => r.id === selectedId) ?? state.routes[0];
+  const active =
+    state.routes.find((r) => r.id === selectedId) ?? state.routes[0];
   const lowCoverage = active.sensor_coverage < LOW_COVERAGE_THRESHOLD;
 
   return (
@@ -57,16 +70,23 @@ export default function Selected() {
       {/* Detail panel */}
       <div className="p-5 md:p-6 md:border-r border-[var(--color-border)] md:overflow-y-auto order-2 md:order-1">
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate("/Options")} className="text-[var(--color-muted)]">
+          <button
+            onClick={() => navigate("/Options")}
+            className="text-[var(--color-muted)]"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-xl font-semibold">
-            {active.recommended ? "Recommended route" : `Route option ${active.rank}`}
+            {active.recommended
+              ? "Recommended route"
+              : `Route option ${active.rank}`}
           </h1>
         </div>
 
         {state.destination && (
-          <p className="text-sm text-[var(--color-muted)] mb-4">To {state.destination}</p>
+          <p className="text-sm text-[var(--color-muted)] mb-4">
+            To {state.destination}
+          </p>
         )}
 
         {/* Other route options, tappable to switch which one is highlighted */}
@@ -103,7 +123,9 @@ export default function Selected() {
               <span className="text-sm font-medium flex items-center gap-1.5">
                 <Volume2 className="w-4 h-4" /> Noise
               </span>
-              <span className="text-sm text-[var(--color-muted)]">{active.noise.label}</span>
+              <span className="text-sm text-[var(--color-muted)]">
+                {active.noise.label}
+              </span>
             </div>
           )}
 
@@ -111,7 +133,9 @@ export default function Selected() {
             <span className="text-sm font-medium flex items-center gap-1.5">
               <TreePine className="w-4 h-4" /> Quiet spaces on the way
             </span>
-            <span className="text-sm text-[var(--color-muted)]">{active.refuges.length}</span>
+            <span className="text-sm text-[var(--color-muted)]">
+              {active.refuges.length}
+            </span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -119,7 +143,8 @@ export default function Selected() {
               <Clock className="w-4 h-4" /> Distance / time
             </span>
             <span className="text-sm text-[var(--color-muted)]">
-              {formatDistance(active.distance_m)} · {formatDuration(active.duration_s)}
+              {formatDistance(active.distance_m)} ·{" "}
+              {formatDuration(active.duration_s)}
             </span>
           </div>
 
@@ -127,8 +152,9 @@ export default function Selected() {
             <div className="flex items-start gap-2 mt-3 pt-3 border-t border-[var(--color-border)]">
               <AlertCircle className="w-4 h-4 text-[var(--color-muted)] shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--color-muted)]">
-                Limited real-time data for this area — this route is ranked mostly by
-                distance and duration rather than measured crowd/noise conditions.
+                Limited real-time data for this area — this route is ranked
+                mostly by distance and duration rather than measured crowd/noise
+                conditions.
               </p>
             </div>
           )}
@@ -136,7 +162,9 @@ export default function Selected() {
 
         {active.refuges.length > 0 && (
           <div className="mb-5">
-            <p className="text-sm font-medium mb-2">Quiet spaces along the way</p>
+            <p className="text-sm font-medium mb-2">
+              Quiet spaces along the way
+            </p>
             <ul className="space-y-2">
               {active.refuges.map((rf) => (
                 <li
@@ -144,7 +172,9 @@ export default function Selected() {
                   className="flex items-center justify-between text-sm border border-[var(--color-border)] rounded-lg px-3 py-2"
                 >
                   <span>{rf.name}</span>
-                  <span className="text-[var(--color-muted)]">{rf.distance_m} m</span>
+                  <span className="text-[var(--color-muted)]">
+                    {rf.distance_m} m
+                  </span>
                 </li>
               ))}
             </ul>
@@ -159,8 +189,8 @@ export default function Selected() {
                 route: active,
                 start: state.start,
                 end: state.end,
-                destination: state.destination,
-              },
+                destination: state.destination
+              }
             })
           }
         >
@@ -170,7 +200,20 @@ export default function Selected() {
         {state.referenceTime && (
           <p className="text-xs text-[var(--color-muted)] mt-4">
             Conditions as of{" "}
-            {new Date(state.referenceTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {new Date(state.referenceTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            })}
+          </p>
+        )}
+        {state.plannedTime && (
+          <p className="text-xs text-[var(--color-muted)] mt-1">
+            Planning for{" "}
+            {new Date(state.plannedTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit"
+            })}{" "}
+            — shown conditions are current, not a forecast for that time.
           </p>
         )}
       </div>

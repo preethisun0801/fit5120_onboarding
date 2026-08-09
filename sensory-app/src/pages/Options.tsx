@@ -11,11 +11,14 @@ type NavState = {
   destLat: number;
   destLon: number;
   destination?: string;
+  plannedTime?: string | null;
 };
 
 const LOW_COVERAGE_THRESHOLD = 0.3;
 
-function bandToCrowdLevel(band: ScoredRoute["band"]): "low" | "moderate" | "high" {
+function bandToCrowdLevel(
+  band: ScoredRoute["band"]
+): "low" | "moderate" | "high" {
   if (band === "Low") return "low";
   if (band === "Moderate") return "moderate";
   return "high";
@@ -35,14 +38,16 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
   const p2 = (bLat * Math.PI) / 180;
   const dp = ((bLat - aLat) * Math.PI) / 180;
   const dl = ((bLon - aLon) * Math.PI) / 180;
-  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  const h =
+    Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
 export default function Options() {
   const { state } = useLocation() as { state: NavState | null };
   const navigate = useNavigate();
-  const hasJourney = !!state && state.destLat !== undefined && state.destLon !== undefined;
+  const hasJourney =
+    !!state && state.destLat !== undefined && state.destLon !== undefined;
 
   // ---- Journey mode: rank routes between two points already chosen ----
   const [routes, setRoutes] = useState<ScoredRoute[]>([]);
@@ -81,7 +86,9 @@ export default function Options() {
     navigator.geolocation.getCurrentPosition(
       (pos) => setHere([pos.coords.latitude, pos.coords.longitude]),
       () => {
-        setBrowseError("Couldn't get your location. Check browser permissions.");
+        setBrowseError(
+          "Couldn't get your location. Check browser permissions."
+        );
         setBrowseLoading(false);
       }
     );
@@ -106,15 +113,20 @@ export default function Options() {
         navigate("/Selected", {
           state: {
             routes: res.routes,
-            selectedId: res.routes.find((x) => x.recommended)?.id ?? res.routes[0]?.id ?? null,
+            selectedId:
+              res.routes.find((x) => x.recommended)?.id ??
+              res.routes[0]?.id ??
+              null,
             start: [here[0], here[1]] as [number, number],
             end: [r.latitude, r.longitude] as [number, number],
             destination: r.feature_name,
-            referenceTime: res.reference_time,
-          },
+            referenceTime: res.reference_time
+          }
         });
       })
-      .catch(() => setBrowseError("Couldn't find a route to that spot right now."))
+      .catch(() =>
+        setBrowseError("Couldn't find a route to that spot right now.")
+      )
       .finally(() => setRoutingTo(null));
   }
 
@@ -127,13 +139,20 @@ export default function Options() {
           Tap one to get walking directions from where you are now.
         </p>
 
-        {browseLoading && <p className="text-[var(--color-muted)]">Finding you…</p>}
-        {browseError && <p className="text-[var(--color-danger)] text-sm">{browseError}</p>}
+        {browseLoading && (
+          <p className="text-[var(--color-muted)]">Finding you…</p>
+        )}
+        {browseError && (
+          <p className="text-[var(--color-danger)] text-sm">{browseError}</p>
+        )}
 
         {!browseLoading && here && (
           <ul className="space-y-3">
             {browseRefuges
-              .map((r) => ({ r, d: haversineM(here[0], here[1], r.latitude, r.longitude) }))
+              .map((r) => ({
+                r,
+                d: haversineM(here[0], here[1], r.latitude, r.longitude)
+              }))
               .sort((a, b) => a.d - b.d)
               .map(({ r, d }) => (
                 <li key={r.landmark_id}>
@@ -144,7 +163,9 @@ export default function Options() {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{r.feature_name}</span>
                       <span className="text-xs text-[var(--color-muted)]">
-                        {routingTo === r.landmark_id ? "Finding route…" : formatDistance(d)}
+                        {routingTo === r.landmark_id
+                          ? "Finding route…"
+                          : formatDistance(d)}
                       </span>
                     </div>
                     <span className="text-xs uppercase text-[var(--color-muted)]">
@@ -164,7 +185,10 @@ export default function Options() {
   return (
     <div className="max-w-2xl mx-auto px-6 pt-6 md:pt-24 pb-24 md:pb-6">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => navigate("/")} className="text-[var(--color-muted)]">
+        <button
+          onClick={() => navigate("/")}
+          className="text-[var(--color-muted)]"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-semibold">
@@ -172,14 +196,29 @@ export default function Options() {
         </h1>
       </div>
 
-      {loading && <p className="text-[var(--color-muted)]">Finding calmer routes…</p>}
+      {loading && (
+        <p className="text-[var(--color-muted)]">Finding calmer routes…</p>
+      )}
       {error && (
         <Card className="border-[var(--color-danger)]">
           <p className="text-[var(--color-danger)] text-sm">{error}</p>
         </Card>
       )}
       {!loading && !error && routes.length === 0 && (
-        <p className="text-[var(--color-muted)]">No routes found for this journey.</p>
+        <p className="text-[var(--color-muted)]">
+          No routes found for this journey.
+        </p>
+      )}
+      {state!.plannedTime && (
+        <p className="text-xs text-[var(--color-muted)] mb-3">
+          Planning for{" "}
+          {new Date(state!.plannedTime).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}{" "}
+          — crowd and noise levels shown reflect current conditions, since
+          future estimates aren't available yet.
+        </p>
       )}
 
       <ul className="space-y-3">
@@ -198,7 +237,8 @@ export default function Options() {
                       end: [state!.destLat, state!.destLon] as [number, number],
                       destination: state!.destination,
                       referenceTime,
-                    },
+                      plannedTime: state!.plannedTime
+                    }
                   })
                 }
               >
@@ -208,7 +248,9 @@ export default function Options() {
                       {route.rank}
                     </span>
                     <span className="font-medium">
-                      {route.recommended ? "Recommended" : `Option ${route.rank}`}
+                      {route.recommended
+                        ? "Recommended"
+                        : `Option ${route.rank}`}
                     </span>
                   </div>
                   <span className="text-sm text-[var(--color-muted)]">
@@ -229,7 +271,8 @@ export default function Options() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <TreePine className="w-4 h-4" />
-                    {route.refuges.length} quiet {route.refuges.length === 1 ? "space" : "spaces"}
+                    {route.refuges.length} quiet{" "}
+                    {route.refuges.length === 1 ? "space" : "spaces"}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Clock className="w-4 h-4" />
@@ -239,7 +282,8 @@ export default function Options() {
 
                 {lowCoverage && (
                   <p className="text-xs text-[var(--color-muted)] mt-2">
-                    Limited real-time data for this area — route shown by distance and duration only.
+                    Limited real-time data for this area — route shown by
+                    distance and duration only.
                   </p>
                 )}
               </Card>
@@ -250,7 +294,11 @@ export default function Options() {
 
       {referenceTime && !loading && routes.length > 0 && (
         <p className="text-xs text-[var(--color-muted)] mt-4">
-          Conditions as of {new Date(referenceTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          Conditions as of{" "}
+          {new Date(referenceTime).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}
         </p>
       )}
     </div>
