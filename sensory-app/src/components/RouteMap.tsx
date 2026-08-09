@@ -155,6 +155,26 @@ export default function RouteMap({
           });
       }
 
+      if (active.basis === "no data") {
+  const mid = active.geometry[Math.floor(active.geometry.length / 2)];
+  if (mid) {
+    L.marker(mid, {
+      icon: L.divIcon({ className: "", html: "", iconSize: [0, 0] }),
+    })
+      .bindPopup(
+        `<div style="font-family:Geist,system-ui,sans-serif;min-width:180px">
+           <strong>No sensor data here</strong><br/>
+           <span style="color:${muted};font-size:13px">
+             This area is outside current sensor coverage, so crowd and noise
+             levels aren't available. Route shown by distance and time only.
+           </span>
+         </div>`
+      )
+      .addTo(group)
+      .openPopup();
+  }
+}
+
       // Stretches with no sensor in range. Marked so a gap in the data reads as
       // a gap rather than as calm.
       active.points

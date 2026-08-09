@@ -20,7 +20,8 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
   const p2 = (bLat * Math.PI) / 180;
   const dp = ((bLat - aLat) * Math.PI) / 180;
   const dl = ((bLon - aLon) * Math.PI) / 180;
-  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  const h =
+    Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
@@ -56,16 +57,22 @@ export default function Way() {
 
   useEffect(() => {
     if (!route || !navigator.geolocation) {
-      setGeoError("Live location isn't available — showing the route without live tracking.");
+      setGeoError(
+        "Live location isn't available — showing the route without live tracking."
+      );
       return;
     }
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
-      () => setGeoError("Location access was denied — showing the route without live tracking."),
+      () =>
+        setGeoError(
+          "Location access was denied — showing the route without live tracking."
+        ),
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
     return () => {
-      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+      if (watchId.current !== null)
+        navigator.geolocation.clearWatch(watchId.current);
     };
   }, [route]);
 
@@ -92,44 +99,71 @@ export default function Way() {
   }
 
   function openQuietSpaces() {
-  setQuietOpen(true);
-  if (quietRefuges.length > 0 || quietLoading) return;
-  setQuietLoading(true);
-  setQuietError(null);
-  api
-    .getRefuges()
-    .then(setQuietRefuges)
-    .catch(() => setQuietError("Couldn't load quiet places right now."))
-    .finally(() => setQuietLoading(false));
-}
+    setQuietOpen(true);
+    if (quietRefuges.length > 0 || quietLoading) return;
+    setQuietLoading(true);
+    setQuietError(null);
+    api
+      .getRefuges()
+      .then(setQuietRefuges)
+      .catch(() => setQuietError("Couldn't load quiet places right now."))
+      .finally(() => setQuietLoading(false));
+  }
 
   const upcoming = steps[nextStepIdx] ?? null;
-  const arrived = steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
+  const arrived =
+    steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
 
-  const distToNext = position && upcoming
-    ? haversineM(position[0], position[1], upcoming.lat, upcoming.lon)
-    : upcoming?.distance_m ?? 0;
+  const distToNext =
+    position && upcoming
+      ? haversineM(position[0], position[1], upcoming.lat, upcoming.lon)
+      : (upcoming?.distance_m ?? 0);
 
   // Approximation: remaining distance is what's left of the current leg plus
   // every full leg after it. This doesn't project your position onto the
   // path itself, so it can drift a little if you stray off-route, but it's
   // close enough to be useful without a full map-matching implementation.
-  const remainingLegs = steps.slice(nextStepIdx).reduce((sum, s) => sum + s.distance_m, 0);
-  const remainingDistance = distToNext + (remainingLegs - (upcoming?.distance_m ?? 0));
-  const remainingDuration = route.distance_m > 0
-    ? (remainingDistance / route.distance_m) * route.duration_s
-    : 0;
+  const remainingLegs = route.steps
+    .slice(nextStepIdx)
+    .reduce((sum, s) => sum + s.distance_m, 0);
+  const remainingDistance = distToNext + remainingLegs;
+  const rawRemainingDuration =
+    route.distance_m > 0
+      ? (remainingDistance / route.distance_m) * route.duration_s
+      : 0;
+
+  // Guards against a bad/mismatched GPS reading producing an absurd ETA even
+  // if remainingDistance itself slips past the position-validity check above.
+  const remainingDuration = Math.min(
+    rawRemainingDuration,
+    route.duration_s * 1.5
+  );
 
   // Crowd warning ahead: any sampled point within the next ~250m scoring at
   // or above this route's worst_cutoff.
-  const aheadWarning = position && route.worst_cutoff !== null
-    ? route.points.some(
-        (p) =>
-          p.score !== null &&
-          p.score >= (route.worst_cutoff as number) &&
-          haversineM(position[0], position[1], p.lat, p.lon) <= 250
-      )
-    : false;
+  const aheadWarning =
+    position && route.worst_cutoff !== null
+      ? route.points.some(
+          (p) =>
+            p.score !== null &&
+            p.score >= (route.worst_cutoff as number) &&
+            haversineM(position[0], position[1], p.lat, p.lon) <= 250
+        )
+      : false;
+  // Leg length from the *previous* point to this one — the honest reference
+  // for "how far this step should be." Falls back to the step's own forward
+  // distance if there's no previous step (e.g. nextStepIdx === 0 case).
+  const referenceLegLength =
+    route.steps[nextStepIdx - 1]?.distance_m ?? upcoming?.distance_m ?? 0;
+
+  const positionLooksValid =
+    !position || !upcoming || referenceLegLength === 0
+      ? true
+      : distToNext <= Math.max(referenceLegLength * 3, 100); // generous slack, not exact
+
+  const effectiveDistToNext = positionLooksValid
+    ? distToNext
+    : referenceLegLength;
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-24">
@@ -139,7 +173,8 @@ export default function Way() {
           <span>{minutes(remainingDuration)} min remaining</span>
           <span aria-hidden>·</span>
           <span className="flex items-center gap-1">
-            Sensory load: {route.band} <CrowdDot level={bandLevel(route.band)} />
+            Sensory load: {route.band}{" "}
+            <CrowdDot level={bandLevel(route.band)} />
           </span>
         </div>
       </div>
@@ -167,14 +202,21 @@ export default function Way() {
         </div>
       ) : upcoming ? (
         <div className="rounded-lg border border-[var(--color-border)] p-4 mb-4">
-          <p className="text-xs text-[var(--color-muted)] mb-1">In {metres(distToNext)}</p>
+          <p className="text-xs text-[var(--color-muted)] mb-1">
+            In {metres(effectiveDistToNext)}
+          </p>
           <div className="flex items-center gap-2">
             <Navigation2 className="w-5 h-5 text-[var(--color-foreground)] shrink-0" />
             <p className="font-medium">{upcoming.instruction}</p>
           </div>
         </div>
       ) : null}
-
+      {!positionLooksValid && (
+        <p className="text-xs text-[var(--color-muted)] mb-2">
+          Your location doesn't match this route — showing planned distances
+          instead of live ones.
+        </p>
+      )}
       {aheadWarning && (
         <button
           onClick={() => navigate("/Selected", { state: { route } })}
@@ -191,70 +233,89 @@ export default function Way() {
       )}
 
       {quietOpen && (
-  <div className="fixed inset-0 z-50 flex items-end md:items-center md:justify-center bg-black/30">
-    <div className="w-full md:max-w-sm bg-[var(--color-card)] rounded-t-2xl md:rounded-2xl border border-[var(--color-border)] max-h-[70vh] overflow-y-auto">
-      <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
-        <p className="font-medium">Quiet places nearby</p>
-        <button onClick={() => setQuietOpen(false)} className="text-[var(--color-muted)]">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center md:justify-center bg-black/30">
+          <div className="w-full md:max-w-sm bg-[var(--color-card)] rounded-t-2xl md:rounded-2xl border border-[var(--color-border)] max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+              <p className="font-medium">Quiet places nearby</p>
+              <button
+                onClick={() => setQuietOpen(false)}
+                className="text-[var(--color-muted)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-      <div className="p-4">
-        {quietLoading && <p className="text-sm text-[var(--color-muted)]">Loading…</p>}
-        {quietError && <p className="text-sm text-[var(--color-danger)]">{quietError}</p>}
+            <div className="p-4">
+              {quietLoading && (
+                <p className="text-sm text-[var(--color-muted)]">Loading…</p>
+              )}
+              {quietError && (
+                <p className="text-sm text-[var(--color-danger)]">
+                  {quietError}
+                </p>
+              )}
 
-        {!quietLoading && !quietError && (
-          <ul className="space-y-2">
-            {quietRefuges
-              .map((r) => {
-                const anchor = position ?? route.geometry[0];
-                return {
-                  r,
-                  d: haversineM(anchor[0], anchor[1], r.latitude, r.longitude),
-                };
-              })
-              .sort((a, b) => a.d - b.d)
-              .slice(0, 6)
-              .map(({ r, d }) => (
-                <li key={r.landmark_id}>
-                  <button
-                    onClick={() => {
+              {!quietLoading && !quietError && (
+                <ul className="space-y-2">
+                  {quietRefuges
+                    .map((r) => {
                       const anchor = position ?? route.geometry[0];
-                      setQuietOpen(false);
-                      navigate("/Options", {
-                        state: {
-                          lat: anchor[0],
-                          lon: anchor[1],
-                          destLat: r.latitude,
-                          destLon: r.longitude,
-                          destination: r.feature_name,
-                        },
-                      });
-                    }}
-                    className="w-full flex items-center justify-between text-left rounded-lg border border-[var(--color-border)] px-3 py-2.5 hover:border-[var(--color-accent)]"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{r.feature_name}</p>
-                      <p className="text-xs text-[var(--color-muted)]">
-                        {r.is_indoor ? "Indoor" : "Outdoor"} · {r.sensory_tier}
-                      </p>
-                    </div>
-                    <span className="text-xs text-[var(--color-muted)] shrink-0 ml-2">
-                      {metres(d)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            {quietRefuges.length === 0 && (
-              <p className="text-sm text-[var(--color-muted)]">No quiet places found.</p>
-            )}
-          </ul>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                      return {
+                        r,
+                        d: haversineM(
+                          anchor[0],
+                          anchor[1],
+                          r.latitude,
+                          r.longitude
+                        )
+                      };
+                    })
+                    .sort((a, b) => a.d - b.d)
+                    .slice(0, 6)
+                    .map(({ r, d }) => (
+                      <li key={r.landmark_id}>
+                        <button
+                          onClick={() => {
+                            const anchor = position ?? route.geometry[0];
+                            setQuietOpen(false);
+                            navigate("/Options", {
+                              state: {
+                                lat: anchor[0],
+                                lon: anchor[1],
+                                destLat: r.latitude,
+                                destLon: r.longitude,
+                                destination: r.feature_name
+                              }
+                            });
+                          }}
+                          className="w-full flex items-center justify-between text-left rounded-lg border border-[var(--color-border)] px-3 py-2.5 hover:border-[var(--color-accent)]"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {r.feature_name}
+                            </p>
+                            <p className="text-xs text-[var(--color-muted)]">
+                              {r.is_indoor ? "Indoor" : "Outdoor"} ·{" "}
+                              {r.sensory_tier}
+                            </p>
+                          </div>
+                          <span className="text-xs text-[var(--color-muted)] shrink-0 ml-2">
+                            {metres(d)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  {quietRefuges.length === 0 && (
+                    <p className="text-sm text-[var(--color-muted)]">
+                      No quiet places found.
+                    </p>
+                  )}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Button
@@ -268,7 +329,14 @@ export default function Way() {
           className="w-full flex items-center justify-center gap-2"
           onClick={() =>
             navigate("/Selected", {
-              state: { routes: [route], selectedId: route.id, start: route.geometry[0], end: route.geometry[route.geometry.length - 1], destination: state?.destination, referenceTime: null },
+              state: {
+                routes: [route],
+                selectedId: route.id,
+                start: route.geometry[0],
+                end: route.geometry[route.geometry.length - 1],
+                destination: state?.destination,
+                referenceTime: null
+              }
             })
           }
         >

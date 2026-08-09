@@ -32,7 +32,7 @@ export type NearbySensor = {
 
 // ---------------------------------------------------------------- routes
 
-export type Band = "Low" | "Moderate" | "High";
+export type Band = "Low" | "Moderate" | "High" | "Unknown";
 
 export type RoutePoint = {
   lat: number;
@@ -58,15 +58,15 @@ export type ScoredRoute = {
   recommended: boolean;
   band: Band;
   /** whole-route mean — sets the band a user reads */
-  avg_score: number;
+  avg_score: number | null;
   /** mean of the worst 20% of points — what the ranking is based on */
-  worst_score: number;
-  rank_score: number;
+  worst_score: number | null;
+  rank_score: number | null;
   distance_m: number;
   duration_s: number;
   /** share of sampled points with a sensor in range; below 0.5 warn the user */
   sensor_coverage: number;
-  basis: "crowd only" | "crowd+noise";
+  basis: "crowd only" | "crowd+noise" | "no data";
   noise: { shown: boolean; label: string | null; coverage: number };
   geometry: [number, number][];
   points: RoutePoint[];

@@ -396,7 +396,12 @@ function scoreRoute(
       )
     }))
     .filter((x) => x.d <= REFUGE_RADIUS_M)
-    .sort((a, b) => a.d - b.d);
+    .sort((a: any, b: any) => {
+  if (a.rank_score === null && b.rank_score === null) return a.distance_m - b.distance_m;
+  if (a.rank_score === null) return 1;
+  if (b.rank_score === null) return -1;
+  return a.rank_score - b.rank_score;
+})
 
   const noiseLabel = noiseCounts
     ? (noiseWorst as number) > 75
