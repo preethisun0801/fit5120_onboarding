@@ -72,6 +72,16 @@ interface Refuge {
   lon: number;
 }
 
+interface RouteStep {
+  instruction: string;
+  name: string | null;
+  distance_m: number;
+  duration_s: number;
+  maneuver_type: number | null;
+  lat: number;
+  lon: number;
+}
+
 // ---------------------------------------------------------------- geometry
 
 function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
@@ -264,7 +274,8 @@ async function fetchRoutes(start: LatLon, end: LatLon) {
         [start[1], start[0]],
         [end[1], end[0]],
       ],
-      instructions: false,
+      instructions: true,
+      instructions_format: "text",
       alternative_routes: {
         target_count: 3,
         // Caps how much two candidates may overlap. The default 0.6 lets them
@@ -281,23 +292,42 @@ async function fetchRoutes(start: LatLon, end: LatLon) {
   }
 
   const json = (await response.json()) as any;
-  return (json.features ?? []).map((f: any, i: number) => ({
+return (json.features ?? []).map((f: any, i: number) => {
+  const coords: LatLon[] = (f.geometry.coordinates as [number, number][]).map(
+    ([lon, lat]) => [lat, lon] as LatLon
+  );
+  const rawSteps = f.properties?.segments?.[0]?.steps ?? [];
+  const steps = rawSteps.map((s: any) => {
+    const wp = Math.min(s.way_points?.[0] ?? 0, coords.length - 1);
+    const [lon, lat] = coords[wp] ?? [0, 0];
+    return {
+      instruction: s.instruction as string,
+      name: (s.name as string) || null,
+      distance_m: Math.round(s.distance ?? 0),
+      duration_s: Math.round(s.duration ?? 0),
+      maneuver_type: typeof s.type === "number" ? s.type : null,
+      lat: Number(lat.toFixed(6)),
+      lon: Number(lon.toFixed(6)),
+    };
+  });
+  return {
     index: i,
-    coords: (f.geometry.coordinates as [number, number][]).map(
-      ([lon, lat]) => [lat, lon] as LatLon
-    ),
+    coords,
     distance_m: f.properties?.summary?.distance ?? 0,
     duration_s: f.properties?.summary?.duration ?? 0,
-  }));
+    steps,
+  };
+});
 }
 
 // ---------------------------------------------------------------- scoring
 
 function scoreRoute(
-  route: { index: number; coords: LatLon[]; distance_m: number; duration_s: number },
+  route: { index: number; coords: LatLon[]; distance_m: number; duration_s: number;},
   sensors: Sensor[],
   devices: NoiseDevice[],
-  refuges: Refuge[]
+  refuges: Refuge[], 
+  steps: RouteStep[]
 ) {
   const samples = sampleRoute(route.coords);
 
@@ -381,6 +411,7 @@ function scoreRoute(
     // a user regardless of noise coverage. The rank score orders candidates;
     // the band describes the route.
     band: bandLabel(crowdMean),
+    steps,
     avg_score: Number(crowdMean.toFixed(1)),
     worst_score: Number(crowdWorst.toFixed(1)),
     rank_score: Number(rankScore.toFixed(1)),
@@ -470,7 +501,7 @@ router.get(
     }
 
     const scored = raw
-      .map((r: any) => scoreRoute(r, sensors, devices, refuges))
+      .map((r: any) => scoreRoute(r, sensors, devices, refuges, r.steps))
       .filter((r: any): r is NonNullable<typeof r> => r !== null)
       .sort((a: any, b: any) => a.rank_score - b.rank_score)
       .map((r: any, i: number) => ({ ...r, rank: i + 1, recommended: i === 0 }));

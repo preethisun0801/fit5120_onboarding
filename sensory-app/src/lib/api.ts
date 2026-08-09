@@ -73,6 +73,7 @@ export type ScoredRoute = {
   /** points scoring at or above this are the busiest stretch */
   worst_cutoff: number | null;
   refuges: RouteRefuge[];
+  steps: RouteStep[];
 };
 
 export type RoutesResponse = {
@@ -86,6 +87,16 @@ export type RoutesResponse = {
     bands: Record<string, string>;
   };
   routes: ScoredRoute[];
+};
+
+export type RouteStep = {
+  instruction: string;
+  name: string | null;
+  distance_m: number;
+  duration_s: number;
+  maneuver_type: number | null;
+  lat: number;
+  lon: number;
 };
 
 export const api = {

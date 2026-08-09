@@ -101,8 +101,10 @@ export default function Options() {
                 onClick={() =>
                   navigate("/Selected", {
                     state: {
-                      route,
-                      origin: { lat: state.lat, lon: state.lon },
+                      routes,
+                      selectedId: route.id,
+                      start: [state.lat, state.lon] as [number, number],
+                      end: [state.destLat, state.destLon] as [number, number],
                       destination: state.destination,
                       referenceTime,
                     },
