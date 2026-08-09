@@ -112,7 +112,7 @@ export default function Selected() {
               <Users className="w-4 h-4" /> Crowd level
             </span>
             <span className="text-sm flex items-center gap-1.5">
-              {active.band} <CrowdDot level={bandToCrowdLevel(active.band) as "low" | "moderate" | "high"} />
+              {active.band} <CrowdDot level={bandToCrowdLevel(active.band) } />
             </span>
           </div>
 
