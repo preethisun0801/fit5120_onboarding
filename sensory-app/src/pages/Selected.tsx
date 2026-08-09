@@ -28,12 +28,11 @@ type NavState = {
 
 const LOW_COVERAGE_THRESHOLD = 0.3;
 
-function bandToCrowdLevel(
-  band: ScoredRoute["band"]
-): "low" | "moderate" | "high" {
+function bandToCrowdLevel(band: ScoredRoute["band"]): "low" | "moderate" | "high" | "unknown" {
   if (band === "Low") return "low";
   if (band === "Moderate") return "moderate";
-  return "high";
+  if (band === "High") return "high";
+  return "unknown";
 }
 
 function formatDuration(seconds: number) {
@@ -113,7 +112,7 @@ export default function Selected() {
               <Users className="w-4 h-4" /> Crowd level
             </span>
             <span className="text-sm flex items-center gap-1.5">
-              {active.band} <CrowdDot level={bandToCrowdLevel(active.band)} />
+              {active.band} <CrowdDot level={bandToCrowdLevel(active.band) as "low" | "moderate" | "high"} />
             </span>
           </div>
 
