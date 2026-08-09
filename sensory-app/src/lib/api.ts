@@ -45,6 +45,8 @@ export type RoutePoint = {
   /** null where no sensor sits within the snap radius of this point */
   score: number | null;
   sensor: string | null;
+  /** 0–1 spatial confidence: 1 at the sensor, decaying to 0 at the snap radius edge */
+  confidence: number;
 };
 
 export type RouteRefuge = {
@@ -103,6 +105,8 @@ export type RouteStep = {
   lat: number;
   lon: number;
 };
+
+
 
 export const api = {
   getRefuges: (tier?: string) =>

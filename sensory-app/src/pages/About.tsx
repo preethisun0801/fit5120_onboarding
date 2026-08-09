@@ -39,8 +39,8 @@ export default function About() {
     <div className="max-w-3xl mx-auto px-6 pt-6 md:pt-24 pb-24 md:pb-12">
       <h1 className="text-2xl font-semibold mb-2">About this project</h1>
       <p className="text-[var(--color-muted)] mb-8">
-        A navigation tool for people who find crowded, loud, or unpredictable
-        environments overwhelming — built for FIT5120 at Monash University.
+        A navigation tool for sensory-sensitive and neurodivergent people who find crowded, loud, or unpredictable
+        environments overwhelming. Built as part of Monash University's FIT5120 Industry Experience course, Semester 2, 2026.
       </p>
 
       <section className="mb-8">

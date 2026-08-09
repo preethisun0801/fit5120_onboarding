@@ -126,7 +126,20 @@ function sampleRoute(coords: LatLon[], spacing = SAMPLE_SPACING_M): LatLon[] {
   }
   return out;
 }
+// Spatial confidence: 1.0 when the sensor sits right at the sample point,
+// decaying linearly to 0 at the radius edge. A sensor barely inside the
+// cutoff describes "roughly this area", not "this exact spot" — blending
+// its score toward a neutral midpoint rather than trusting it at full
+// weight stops one distant, borderline reading swinging a route's score
+// the same as a sensor standing directly on the path.
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function spatialConfidence(distanceM: number, radiusM: number): number {
+  return clamp(1 - distanceM / radiusM, 0, 1);
+}
 /** Mean of the worst N% of values. */
 function worstMean(values: number[], fraction = WORST_FRACTION): number | null {
   if (values.length === 0) return null;
@@ -344,6 +357,7 @@ function scoreRoute(
     lon: number;
     score: number | null;
     sensor: string | null;
+    confidence: number;
   }[] = [];
   const crowdScores: number[] = [];
   const noiseScores: number[] = [];
@@ -358,12 +372,20 @@ function scoreRoute(
         bestD = d;
       }
     }
-    if (nearest) crowdScores.push(nearest.score);
+    // after:
+    let confidence = 0;
+    let blended: number | null = null;
+    if (nearest) {
+      confidence = spatialConfidence(bestD, SNAP_RADIUS_M);
+      blended = nearest.score * confidence + 50 * (1 - confidence);
+      crowdScores.push(blended);
+    }
     points.push({
       lat: Number(lat.toFixed(6)),
       lon: Number(lon.toFixed(6)),
-      score: nearest ? Number(nearest.score.toFixed(1)) : null,
-      sensor: nearest ? nearest.name : null
+      score: blended !== null ? Number(blended.toFixed(1)) : null,
+      sensor: nearest ? nearest.name : null,
+      confidence: Number(confidence.toFixed(2))
     });
 
     let nearestDev: NoiseDevice | null = null;
@@ -375,7 +397,12 @@ function scoreRoute(
         bestND = dist;
       }
     }
-    if (nearestDev) noiseScores.push(nearestDev.score);
+    if (nearestDev) {
+      const noiseConfidence = spatialConfidence(bestND, NOISE_RADIUS_M);
+      noiseScores.push(
+        nearestDev.score * noiseConfidence + 50 * (1 - noiseConfidence)
+      );
+    }
   }
 
   const crowdWorst = worstMean(crowdScores);
@@ -507,113 +534,127 @@ router.get(
   asyncHandler(async (req, res) => {
     const TOTAL_TIMEOUT_MS = 20_000;
 
-    const work = (async () => {
-    const nums: number[] = [
-      Number(req.query.start_lat),
-      Number(req.query.start_lon),
-      Number(req.query.end_lat),
-      Number(req.query.end_lon)
-    ];
+    const work = async () => {
+      const nums: number[] = [
+        Number(req.query.start_lat),
+        Number(req.query.start_lon),
+        Number(req.query.end_lat),
+        Number(req.query.end_lon)
+      ];
 
-    if (nums.some((n) => Number.isNaN(n))) {
-      res.status(400).json({
-        detail:
-          "start_lat, start_lon, end_lat and end_lon are required and must be numbers"
-      });
-      return;
-    }
-
-    const startLat = nums[0] as number;
-    const startLon = nums[1] as number;
-    const endLat = nums[2] as number;
-    const endLon = nums[3] as number;
-
-    // Optional client-supplied weighting — defaults match the original fixed
-    // constants (0.7 / 0.3) so requests without these params behave unchanged.
-    let wCrowd = 0.7;
-    let wNoise = 0.3;
-    const rawCrowdW = Number(req.query.crowd_weight);
-    const rawNoiseW = Number(req.query.noise_weight);
-    if (
-      !Number.isNaN(rawCrowdW) &&
-      !Number.isNaN(rawNoiseW) &&
-      rawCrowdW >= 0 &&
-      rawNoiseW >= 0
-    ) {
-      const total = rawCrowdW + rawNoiseW;
-      if (total > 0) {
-        wCrowd = rawCrowdW / total;
-        wNoise = rawNoiseW / total;
+      if (nums.some((n) => Number.isNaN(n))) {
+        res.status(400).json({
+          detail:
+            "start_lat, start_lon, end_lat and end_lon are required and must be numbers"
+        });
+        return;
       }
-    }
-    const [{ sensors, ref }, refuges] = await Promise.all([
-      loadSensorState(),
-      loadRefuges()
-    ]);
 
-    if (sensors.length === 0) {
-      res.status(503).json({
-        detail: "No current pedestrian data. The database may need refreshing."
+      const startLat = nums[0] as number;
+      const startLon = nums[1] as number;
+      const endLat = nums[2] as number;
+      const endLon = nums[3] as number;
+
+      // Optional client-supplied weighting — defaults match the original fixed
+      // constants (0.7 / 0.3) so requests without these params behave unchanged.
+      let wCrowd = 0.7;
+      let wNoise = 0.3;
+      const rawCrowdW = Number(req.query.crowd_weight);
+      const rawNoiseW = Number(req.query.noise_weight);
+      if (
+        !Number.isNaN(rawCrowdW) &&
+        !Number.isNaN(rawNoiseW) &&
+        rawCrowdW >= 0 &&
+        rawNoiseW >= 0
+      ) {
+        const total = rawCrowdW + rawNoiseW;
+        if (total > 0) {
+          wCrowd = rawCrowdW / total;
+          wNoise = rawNoiseW / total;
+        }
+      }
+      const [{ sensors, ref }, refuges] = await Promise.all([
+        loadSensorState(),
+        loadRefuges()
+      ]);
+
+      if (sensors.length === 0) {
+        res.status(503).json({
+          detail:
+            "No current pedestrian data. The database may need refreshing."
+        });
+        return;
+      }
+
+      const devices = await loadNoiseState(ref);
+
+      let raw;
+      try {
+        raw = await fetchRoutes([startLat, startLon], [endLat, endLon]);
+      } catch (err) {
+        console.error("Routing provider failed:", err);
+        res
+          .status(502)
+          .json({ detail: "Could not reach the routing provider" });
+        return;
+      }
+
+      const scored = raw
+        .map((r: any) =>
+          scoreRoute(r, sensors, devices, refuges, r.steps, wCrowd, wNoise)
+        )
+        .filter((r: any): r is NonNullable<typeof r> => r !== null)
+        .sort((a: any, b: any) => a.rank_score - b.rank_score)
+        .map((r: any, i: number) => ({
+          ...r,
+          rank: i + 1,
+          recommended: i === 0
+        }));
+
+      if (scored.length === 0) {
+        res.status(404).json({
+          detail:
+            "No route could be scored. It may fall outside sensor coverage."
+        });
+        return;
+      }
+
+      res.json({
+        reference_time: ref.toISOString(),
+        journey: {
+          start: [startLat, startLon],
+          end: [endLat, endLon]
+        },
+        scoring: {
+          ranked_on: "worst 20% of sampled points",
+          band_from: "whole-route mean",
+          snap_radius_m: SNAP_RADIUS_M,
+          noise_min_coverage: MIN_NOISE_COVERAGE,
+          bands: { Low: "<= 50", Moderate: "50-80", High: "> 80" }
+        },
+        routes: scored
       });
-      return;
-    }
+    };
 
-    const devices = await loadNoiseState(ref);
-
-    let raw;
-    try {
-      raw = await fetchRoutes([startLat, startLon], [endLat, endLon]);
-    } catch (err) {
-      console.error("Routing provider failed:", err);
-      res.status(502).json({ detail: "Could not reach the routing provider" });
-      return;
-    }
-
-    const scored = raw
-      .map((r: any) =>
-        scoreRoute(r, sensors, devices, refuges, r.steps, wCrowd, wNoise)
+    const timeout = new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error("route calculation timed out")),
+        TOTAL_TIMEOUT_MS
       )
-      .filter((r: any): r is NonNullable<typeof r> => r !== null)
-      .sort((a: any, b: any) => a.rank_score - b.rank_score)
-      .map((r: any, i: number) => ({
-        ...r,
-        rank: i + 1,
-        recommended: i === 0
-      }));
-
-    if (scored.length === 0) {
-      res.status(404).json({
-        detail: "No route could be scored. It may fall outside sensor coverage."
-      });
-      return;
-    }
-
-    res.json({
-      reference_time: ref.toISOString(),
-      journey: {
-        start: [startLat, startLon],
-        end: [endLat, endLon]
-      },
-      scoring: {
-        ranked_on: "worst 20% of sampled points",
-        band_from: "whole-route mean",
-        snap_radius_m: SNAP_RADIUS_M,
-        noise_min_coverage: MIN_NOISE_COVERAGE,
-        bands: { Low: "<= 50", Moderate: "50-80", High: "> 80" }
-      },
-      routes: scored
-    });
-  })
-;
-const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("route calculation timed out")), TOTAL_TIMEOUT_MS)
     );
 
     try {
       await Promise.race([work, timeout]);
     } catch (err) {
-      if (err instanceof Error && err.message === "route calculation timed out") {
-        res.status(504).json({ detail: "Route calculation took too long — please try again." });
+      if (
+        err instanceof Error &&
+        err.message === "route calculation timed out"
+      ) {
+        res
+          .status(504)
+          .json({
+            detail: "Route calculation took too long — please try again."
+          });
         return;
       }
       throw err; // anything else still falls through to the global error handler
