@@ -183,7 +183,6 @@ export default function Home() {
         <p className="text-sm font-medium mb-3">Conditions right now</p>
         <LiveConditionsMap
           className="h-32 [&>div]:min-h-0"
-          interactive={false}
           onSummary={setCrowdSummary}
         />
       </div>

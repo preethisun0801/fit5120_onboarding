@@ -183,7 +183,7 @@ export default function LiveConditionsMap({
         }
       }
     });
-  });
+  }, []);
 
   useEffect(() => {
     if (!map.current || !layer.current || !data) return;
