@@ -14,6 +14,7 @@ import RouteMap from "../components/RouteMap";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot";
+import { useJourney } from "../context/JourneyContext";
 
 type NavState = {
   routes: ScoredRoute[];
@@ -44,6 +45,7 @@ function formatDistance(meters: number) {
 }
 
 export default function Selected() {
+  const { startJourney } = useJourney();
   const { state } = useLocation() as { state: NavState | null };
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<number | null>(
@@ -82,13 +84,11 @@ export default function Selected() {
               : `Route option ${active.rank}`}
           </h1>
         </div>
-
         {state.destination && (
           <p className="text-sm text-[var(--color-muted)] mb-4">
             To {state.destination}
           </p>
         )}
-
         {/* Other route options, tappable to switch which one is highlighted */}
         {state.routes.length > 1 && (
           <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
@@ -107,7 +107,6 @@ export default function Selected() {
             ))}
           </div>
         )}
-
         <Card className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium flex items-center gap-1.5">
@@ -159,7 +158,6 @@ export default function Selected() {
             </div>
           )}
         </Card>
-
         {active.refuges.length > 0 && (
           <div className="mb-5">
             <p className="text-sm font-medium mb-2">
@@ -180,23 +178,16 @@ export default function Selected() {
             </ul>
           </div>
         )}
-
+        
         <Button
-          className="w-full"
-          onClick={() =>
-            navigate("/Way", {
-              state: {
-                route: active,
-                start: state.start,
-                end: state.end,
-                destination: state.destination
-              }
-            })
-          }
+          className="w-full mt-2"
+          onClick={() => {
+            startJourney(active, state.destination);
+            navigate("/Way");
+          }}
         >
           Start journey
         </Button>
-
         {state.referenceTime && (
           <p className="text-xs text-[var(--color-muted)] mt-4">
             Conditions as of{" "}

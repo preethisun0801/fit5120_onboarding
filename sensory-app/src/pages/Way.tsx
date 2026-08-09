@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Users, Navigation2, MapPin, LogOut, Layers, X } from "lucide-react";
-import { api, type ScoredRoute, type Refuge } from "../lib/api";
+import { api, type Refuge } from "../lib/api";
+import { useJourney } from "../context/JourneyContext";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot";
 import RouteMap from "../components/RouteMap";
-
-type NavState = {
-  route: ScoredRoute;
-  destination?: string;
-};
 
 // Close enough to a maneuver point to count as "arrived" and advance.
 const ARRIVAL_RADIUS_M = 15;
@@ -38,22 +34,19 @@ function bandLevel(band: string): "low" | "moderate" | "high" {
 }
 
 export default function Way() {
-  const { state } = useLocation() as { state: NavState | null };
   const navigate = useNavigate();
+  const { activeJourney, updateProgress, endJourney } = useJourney();
 
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  // Index into route.steps of the *upcoming* maneuver. Starts at 1 since
-  // step 0 is "Depart" — you're already doing that the moment you start.
-  const [nextStepIdx, setNextStepIdx] = useState(1);
   const [quietOpen, setQuietOpen] = useState(false);
-  const [quietRefuges, setQuietRefuges] = useState<Refuge[]>([]);
   const [quietLoading, setQuietLoading] = useState(false);
   const [quietError, setQuietError] = useState<string | null>(null);
+  const [quietRefuges, setQuietRefuges] = useState<Refuge[]>([]);
   const watchId = useRef<number | null>(null);
 
-  const route = state?.route;
-  const steps = route?.steps ?? [];
+  const route = activeJourney?.route ?? null;
+  const nextStepIdx = activeJourney?.nextStepIdx ?? 1;
 
   useEffect(() => {
     if (!route || !navigator.geolocation) {
@@ -76,16 +69,21 @@ export default function Way() {
     };
   }, [route]);
 
-  // Advance to the next maneuver once close enough to the current one.
+  // Advance through steps, persisted via Context — survives leaving this page.
   useEffect(() => {
-    if (!route || !position || steps.length === 0) return;
-    const target = steps[nextStepIdx];
+    if (!route || !position) return;
+    const target = route.steps[nextStepIdx];
     if (!target) return;
     const d = haversineM(position[0], position[1], target.lat, target.lon);
-    if (d <= ARRIVAL_RADIUS_M && nextStepIdx < steps.length - 1) {
-      setNextStepIdx((i) => i + 1);
+    if (d <= ARRIVAL_RADIUS_M) {
+      if (nextStepIdx >= route.steps.length - 1) {
+        // Reached the final step — the journey is complete.
+        endJourney();
+      } else {
+        updateProgress(nextStepIdx + 1);
+      }
     }
-  }, [position, route, nextStepIdx, steps]);
+  }, [position, route, nextStepIdx, updateProgress, endJourney]);
 
   if (!route) {
     return (
@@ -97,6 +95,9 @@ export default function Way() {
       </div>
     );
   }
+
+  const steps = route.steps;
+  const upcoming = steps[nextStepIdx] ?? null;
 
   function openQuietSpaces() {
     setQuietOpen(true);
@@ -110,7 +111,6 @@ export default function Way() {
       .finally(() => setQuietLoading(false));
   }
 
-  const upcoming = steps[nextStepIdx] ?? null;
   const arrived =
     steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
 
@@ -197,7 +197,7 @@ export default function Way() {
         <div className="rounded-lg border border-[var(--color-border)] p-4 mb-4">
           <p className="font-medium mb-1">You've arrived</p>
           <p className="text-sm text-[var(--color-muted)]">
-            {state?.destination ?? "Destination"} is right here.
+            {activeJourney?.destination ?? "Destination"} is right here.
           </p>
         </div>
       ) : upcoming ? (
@@ -334,7 +334,7 @@ export default function Way() {
                 selectedId: route.id,
                 start: route.geometry[0],
                 end: route.geometry[route.geometry.length - 1],
-                destination: state?.destination,
+                destination: activeJourney?.destination,
                 referenceTime: null
               }
             })
@@ -345,7 +345,10 @@ export default function Way() {
         <Button
           variant="ghost"
           className="w-full flex items-center justify-center gap-2"
-          onClick={() => navigate("/")}
+          onClick={() => {
+            endJourney();
+            navigate("/");
+          }}
         >
           <LogOut className="w-4 h-4" /> Exit
         </Button>
