@@ -36,8 +36,6 @@ const WORST_FRACTION = 0.2;
 // route. Below this, one device the route barely touches would swing the
 // result. The same floor applies to display.
 const MIN_NOISE_COVERAGE = 0.25;
-const W_CROWD = 0.7;
-const W_NOISE = 0.3;
 
 // Sensor coverage is limited to the City of Melbourne, so requests outside it
 // cannot be scored. Validating the area also satisfies the coordinate-range
@@ -334,7 +332,9 @@ function scoreRoute(
   sensors: Sensor[],
   devices: NoiseDevice[],
   refuges: Refuge[],
-  steps: RouteStep[]
+  steps: RouteStep[],
+  wCrowd: number,
+  wNoise: number, 
 ) {
   const samples = sampleRoute(route.coords);
 
@@ -397,11 +397,12 @@ function scoreRoute(
     }))
     .filter((x) => x.d <= REFUGE_RADIUS_M)
     .sort((a: any, b: any) => {
-  if (a.rank_score === null && b.rank_score === null) return a.distance_m - b.distance_m;
-  if (a.rank_score === null) return 1;
-  if (b.rank_score === null) return -1;
-  return a.rank_score - b.rank_score;
-})
+      if (a.rank_score === null && b.rank_score === null)
+        return a.distance_m - b.distance_m;
+      if (a.rank_score === null) return 1;
+      if (b.rank_score === null) return -1;
+      return a.rank_score - b.rank_score;
+    });
 
   const noiseLabel = noiseCounts
     ? (noiseWorst as number) > 75
@@ -443,7 +444,7 @@ function scoreRoute(
   }
 
   const rankScore = noiseCounts
-    ? W_CROWD * crowdWorst + W_NOISE * (noiseWorst as number)
+    ? wCrowd * crowdWorst + wNoise * (noiseWorst as number)
     : crowdWorst;
 
   // The busiest 20% of points — the stretch that drives the ranking, and the
@@ -520,6 +521,24 @@ router.get(
     const endLat = nums[2] as number;
     const endLon = nums[3] as number;
 
+    // Optional client-supplied weighting — defaults match the original fixed
+    // constants (0.7 / 0.3) so requests without these params behave unchanged.
+    let wCrowd = 0.7;
+    let wNoise = 0.3;
+    const rawCrowdW = Number(req.query.crowd_weight);
+    const rawNoiseW = Number(req.query.noise_weight);
+    if (
+      !Number.isNaN(rawCrowdW) &&
+      !Number.isNaN(rawNoiseW) &&
+      rawCrowdW >= 0 &&
+      rawNoiseW >= 0
+    ) {
+      const total = rawCrowdW + rawNoiseW;
+      if (total > 0) {
+        wCrowd = rawCrowdW / total;
+        wNoise = rawNoiseW / total;
+      }
+    }
     const [{ sensors, ref }, refuges] = await Promise.all([
       loadSensorState(),
       loadRefuges()
@@ -544,7 +563,7 @@ router.get(
     }
 
     const scored = raw
-      .map((r: any) => scoreRoute(r, sensors, devices, refuges, r.steps))
+      .map((r: any) => scoreRoute(r, sensors, devices, refuges, r.steps, wCrowd, wNoise))
       .filter((r: any): r is NonNullable<typeof r> => r !== null)
       .sort((a: any, b: any) => a.rank_score - b.rank_score)
       .map((r: any, i: number) => ({

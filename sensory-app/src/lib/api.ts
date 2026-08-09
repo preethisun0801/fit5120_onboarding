@@ -1,9 +1,14 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
-async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+async function get<T>(
+  path: string,
+  params?: Record<string, string | number>
+): Promise<T> {
   const url = new URL(BASE_URL + path);
   if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    Object.entries(params).forEach(([k, v]) =>
+      url.searchParams.set(k, String(v))
+    );
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -108,12 +113,19 @@ export const api = {
     startLat: number,
     startLon: number,
     endLat: number,
-    endLon: number
+    endLon: number,
+    weights?: { crowdWeight: number; noiseWeight: number }
   ) =>
     get<RoutesResponse>("/routes", {
       start_lat: startLat,
       start_lon: startLon,
       end_lat: endLat,
       end_lon: endLon,
-    }),
+      ...(weights
+        ? {
+            crowd_weight: weights.crowdWeight,
+            noise_weight: weights.noiseWeight
+          }
+        : {})
+    })
 };

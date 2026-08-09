@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Volume2, TreePine, Clock } from "lucide-react";
 import { api, type ScoredRoute, type Refuge } from "../lib/api";
 import Card from "../components/ui/Card";
+import { loadPreferences, toRouteWeights } from "../lib/preferences";
 
 type NavState = {
   lat: number;
@@ -59,8 +60,15 @@ export default function Options() {
     if (!hasJourney) return;
     setLoading(true);
     setError(null);
+    const weights = toRouteWeights(loadPreferences());
     api
-      .getRoutes(state!.lat, state!.lon, state!.destLat, state!.destLon)
+      .getRoutes(
+        state!.lat,
+        state!.lon,
+        state!.destLat,
+        state!.destLon,
+        weights
+      )
       .then((res) => {
         setRoutes(res.routes);
         setReferenceTime(res.reference_time);
@@ -107,8 +115,9 @@ export default function Options() {
   function routeToRefuge(r: Refuge) {
     if (!here) return;
     setRoutingTo(r.landmark_id);
+    const weights = toRouteWeights(loadPreferences());
     api
-      .getRoutes(here[0], here[1], r.latitude, r.longitude)
+      .getRoutes(here[0], here[1], r.latitude, r.longitude, weights)
       .then((res) => {
         navigate("/Selected", {
           state: {
@@ -149,6 +158,7 @@ export default function Options() {
         {!browseLoading && here && (
           <ul className="space-y-3">
             {browseRefuges
+              .filter((r) => !loadPreferences().indoorOnly || r.is_indoor)
               .map((r) => ({
                 r,
                 d: haversineM(here[0], here[1], r.latitude, r.longitude)
