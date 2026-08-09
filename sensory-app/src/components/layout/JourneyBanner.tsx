@@ -4,14 +4,15 @@ import { useJourney } from "../../context/JourneyContext";
 import { haversineM, minutes, metres } from "../../lib/geo";
 
 export default function JourneyBanner() {
-  const { activeJourney, position, endJourney } = useJourney();
+  const { journeyRef, route, position, endJourney } = useJourney();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
   // Already on the full turn-by-turn screen — no need for the summary banner.
-  if (!activeJourney || pathname === "/Way") return null;
+  if (!journeyRef || !route || pathname === "/Way") return null;
 
-  const { route, nextStepIdx, destination } = activeJourney;
+  const nextStepIdx = journeyRef.nextStepIdx;
+  const destination = journeyRef.destinationLabel ?? "Destination";
   const upcoming = route.steps[nextStepIdx];
 
   const distToNext = position && upcoming

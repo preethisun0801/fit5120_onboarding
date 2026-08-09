@@ -178,11 +178,11 @@ export default function Selected() {
             </ul>
           </div>
         )}
-        
+      
         <Button
           className="w-full mt-2"
           onClick={() => {
-            startJourney(active, state.destination);
+            startJourney(active, state.start, state.end, state.destination);
             navigate("/Way");
           }}
         >

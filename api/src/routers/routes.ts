@@ -263,6 +263,7 @@ async function fetchRoutes(start: LatLon, end: LatLon) {
   const response = await fetch(ORS_URL, {
     method: "POST",
     headers: { Authorization: key, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(15_000), // ORS should respond well under this; guards against a hung upstream call
     body: JSON.stringify({
       // ORS takes [lon, lat] — the reverse of how we store coordinates
       // everywhere else. Getting this backwards produces a route in the wrong
@@ -334,7 +335,7 @@ function scoreRoute(
   refuges: Refuge[],
   steps: RouteStep[],
   wCrowd: number,
-  wNoise: number, 
+  wNoise: number
 ) {
   const samples = sampleRoute(route.coords);
 
@@ -504,9 +505,15 @@ function scoreRoute(
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const nums = ["start_lat", "start_lon", "end_lat", "end_lon"].map((k) =>
-      Number(req.query[k])
-    );
+    const TOTAL_TIMEOUT_MS = 20_000;
+
+    const work = (async () => {
+    const nums: number[] = [
+      Number(req.query.start_lat),
+      Number(req.query.start_lon),
+      Number(req.query.end_lat),
+      Number(req.query.end_lon)
+    ];
 
     if (nums.some((n) => Number.isNaN(n))) {
       res.status(400).json({
@@ -563,7 +570,9 @@ router.get(
     }
 
     const scored = raw
-      .map((r: any) => scoreRoute(r, sensors, devices, refuges, r.steps, wCrowd, wNoise))
+      .map((r: any) =>
+        scoreRoute(r, sensors, devices, refuges, r.steps, wCrowd, wNoise)
+      )
       .filter((r: any): r is NonNullable<typeof r> => r !== null)
       .sort((a: any, b: any) => a.rank_score - b.rank_score)
       .map((r: any, i: number) => ({
@@ -594,6 +603,21 @@ router.get(
       },
       routes: scored
     });
+  })
+;
+const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("route calculation timed out")), TOTAL_TIMEOUT_MS)
+    );
+
+    try {
+      await Promise.race([work, timeout]);
+    } catch (err) {
+      if (err instanceof Error && err.message === "route calculation timed out") {
+        res.status(504).json({ detail: "Route calculation took too long — please try again." });
+        return;
+      }
+      throw err; // anything else still falls through to the global error handler
+    }
   })
 );
 

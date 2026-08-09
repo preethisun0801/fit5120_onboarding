@@ -10,6 +10,7 @@ import RouteMap from "../components/RouteMap";
 // Close enough to a maneuver point to count as "arrived" and advance.
 const ARRIVAL_RADIUS_M = 15;
 
+
 function bandLevel(band: string): "low" | "moderate" | "high" {
   return band === "Low" ? "low" : band === "Moderate" ? "moderate" : "high";
 }
@@ -35,55 +36,75 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
 
 export default function Way() {
   const navigate = useNavigate();
-  const { activeJourney, endJourney } = useJourney();
+  const { journeyRef, route, position, geoError, routeChanged, loading, endJourney } = useJourney();
 
-  const [position, setPosition] = useState<[number, number] | null>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
+  const [localPosition, setLocalPosition] = useState<[number, number] | null>(null);
+  const [localGeoError, setLocalGeoError] = useState<string | null>(null);
   const [quietOpen, setQuietOpen] = useState(false);
   const [quietLoading, setQuietLoading] = useState(false);
   const [quietError, setQuietError] = useState<string | null>(null);
   const [quietRefuges, setQuietRefuges] = useState<Refuge[]>([]);
   const watchId = useRef<number | null>(null);
 
-  const route = activeJourney?.route ?? null;
-  const nextStepIdx = activeJourney?.nextStepIdx ?? 1;
+  const nextStepIdx = journeyRef?.nextStepIdx ?? 1;
+  const currentPosition = position ?? localPosition;
+  const currentGeoError = geoError ?? localGeoError;
 
   useEffect(() => {
     if (!route || !navigator.geolocation) {
-      setGeoError(
+      setLocalGeoError(
         "Live location isn't available — showing the route without live tracking."
       );
       return;
     }
+
     watchId.current = navigator.geolocation.watchPosition(
-      (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
+      (pos) => setLocalPosition([pos.coords.latitude, pos.coords.longitude]),
       () =>
-        setGeoError(
+        setLocalGeoError(
           "Location access was denied — showing the route without live tracking."
         ),
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
+
     return () => {
-      if (watchId.current !== null)
+      if (watchId.current !== null) {
         navigator.geolocation.clearWatch(watchId.current);
+      }
     };
   }, [route]);
 
   // Advance through steps, persisted via Context — survives leaving this page.
   useEffect(() => {
-    if (!route || !position) return;
+    if (loading || (journeyRef && !route)) return;
+    if (!route || !currentPosition) return;
+
     const target = route.steps[nextStepIdx];
     if (!target) return;
-    const d = haversineM(position[0], position[1], target.lat, target.lon);
+
+    const d = haversineM(
+      currentPosition[0],
+      currentPosition[1],
+      target.lat,
+      target.lon
+    );
+
     if (d <= ARRIVAL_RADIUS_M) {
       if (nextStepIdx >= route.steps.length - 1) {
-        // Reached the final step — the journey is complete.
         endJourney();
       }
     }
-  }, [position, route, nextStepIdx, endJourney]);
+  }, [currentPosition, route, nextStepIdx, endJourney, loading, journeyRef]);
 
-  if (!route) {
+  if (loading && !route) {
+    return (
+      <div className="max-w-xl mx-auto px-6 pt-24">
+        <p className="text-[var(--color-muted)]">Resuming your journey…</p>
+      </div>
+    );
+  }
+
+  if (!journeyRef || !route) {
     return (
       <div className="max-w-xl mx-auto px-6 pt-24">
         <p>No active journey.</p>
@@ -113,8 +134,13 @@ export default function Way() {
     steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
 
   const distToNext =
-    position && upcoming
-      ? haversineM(position[0], position[1], upcoming.lat, upcoming.lon)
+    currentPosition && upcoming
+      ? haversineM(
+          currentPosition[0],
+          currentPosition[1],
+          upcoming.lat,
+          upcoming.lon
+        )
       : (upcoming?.distance_m ?? 0);
 
   // Approximation: remaining distance is what's left of the current leg plus
@@ -140,12 +166,12 @@ export default function Way() {
   // Crowd warning ahead: any sampled point within the next ~250m scoring at
   // or above this route's worst_cutoff.
   const aheadWarning =
-    position && route.worst_cutoff !== null
+    currentPosition && route.worst_cutoff !== null
       ? route.points.some(
           (p) =>
             p.score !== null &&
             p.score >= (route.worst_cutoff as number) &&
-            haversineM(position[0], position[1], p.lat, p.lon) <= 250
+            haversineM(currentPosition[0], currentPosition[1], p.lat, p.lon) <= 250
         )
       : false;
   // Leg length from the *previous* point to this one — the honest reference
@@ -155,7 +181,7 @@ export default function Way() {
     route.steps[nextStepIdx - 1]?.distance_m ?? upcoming?.distance_m ?? 0;
 
   const positionLooksValid =
-    !position || !upcoming || referenceLegLength === 0
+    !currentPosition || !upcoming || referenceLegLength === 0
       ? true
       : distToNext <= Math.max(referenceLegLength * 3, 100); // generous slack, not exact
 
@@ -176,9 +202,9 @@ export default function Way() {
           </span>
         </div>
       </div>
-
-      {geoError && (
-        <p className="text-xs text-[var(--color-muted)] mb-3">{geoError}</p>
+      
+      {currentGeoError && (
+        <p className="text-xs text-[var(--color-muted)] mb-3">{currentGeoError}</p>
       )}
 
       <div className="rounded-lg border border-[var(--color-border)] h-48 md:h-56 mb-4 overflow-hidden">
@@ -186,16 +212,21 @@ export default function Way() {
           routes={[route]}
           selectedId={route.id}
           onSelect={() => {}}
-          start={position ?? route.geometry[0]}
+          start={currentPosition ?? route.geometry[0]}
           end={route.geometry[route.geometry.length - 1]}
         />
       </div>
-
+      {routeChanged && (
+  <p className="text-xs text-[var(--color-muted)] mb-3">
+    Conditions changed since you started — showing an updated route and
+    restarting turn-by-turn from here.
+  </p>
+)}
       {arrived ? (
         <div className="rounded-lg border border-[var(--color-border)] p-4 mb-4">
           <p className="font-medium mb-1">You've arrived</p>
           <p className="text-sm text-[var(--color-muted)]">
-            {activeJourney?.destination ?? "Destination"} is right here.
+            {journeyRef?.destinationLabel ?? "Destination"} is right here.
           </p>
         </div>
       ) : upcoming ? (
@@ -274,7 +305,7 @@ export default function Way() {
                       <li key={r.landmark_id}>
                         <button
                           onClick={() => {
-                            const anchor = position ?? route.geometry[0];
+                            const anchor = currentPosition ?? route.geometry[0];
                             setQuietOpen(false);
                             navigate("/Options", {
                               state: {
@@ -332,7 +363,7 @@ export default function Way() {
                 selectedId: route.id,
                 start: route.geometry[0],
                 end: route.geometry[route.geometry.length - 1],
-                destination: activeJourney?.destination,
+                destination: journeyRef?.destinationLabel,
                 referenceTime: null
               }
             })
