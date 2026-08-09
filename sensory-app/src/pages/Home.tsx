@@ -24,8 +24,8 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        setFrom({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "Current location" });
-        setFromText("Current location");
+        setFrom({ lat: pos.coords.latitude, lon: pos.coords.longitude, label: "Your Current Location" });
+        setFromText("Your Current Location");
       },
       () => {
         setLocating(false);

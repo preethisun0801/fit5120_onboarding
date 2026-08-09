@@ -17,6 +17,10 @@ export default function AddressAutocomplete({
   const debounceRef = useRef<number | null>(null);
 
   useEffect(() => {
+    setQuery(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     if (query.trim().length < 3) {
       setResults([]);
