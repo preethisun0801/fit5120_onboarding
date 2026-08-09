@@ -30,9 +30,79 @@ export type NearbySensor = {
   distance_m: number;
 };
 
+// ---------------------------------------------------------------- routes
+
+export type Band = "Low" | "Moderate" | "High";
+
+export type RoutePoint = {
+  lat: number;
+  lon: number;
+  /** null where no sensor sits within the snap radius of this point */
+  score: number | null;
+  sensor: string | null;
+};
+
+export type RouteRefuge = {
+  landmark_id: number;
+  name: string;
+  tier: string;
+  indoor: boolean;
+  lat: number;
+  lon: number;
+  distance_m: number;
+};
+
+export type ScoredRoute = {
+  id: number;
+  rank: number;
+  recommended: boolean;
+  band: Band;
+  /** whole-route mean — sets the band a user reads */
+  avg_score: number;
+  /** mean of the worst 20% of points — what the ranking is based on */
+  worst_score: number;
+  rank_score: number;
+  distance_m: number;
+  duration_s: number;
+  /** share of sampled points with a sensor in range; below 0.5 warn the user */
+  sensor_coverage: number;
+  basis: "crowd only" | "crowd+noise";
+  noise: { shown: boolean; label: string | null; coverage: number };
+  geometry: [number, number][];
+  points: RoutePoint[];
+  /** points scoring at or above this are the busiest stretch */
+  worst_cutoff: number | null;
+  refuges: RouteRefuge[];
+};
+
+export type RoutesResponse = {
+  reference_time: string;
+  journey: { start: [number, number]; end: [number, number] };
+  scoring: {
+    ranked_on: string;
+    band_from: string;
+    snap_radius_m: number;
+    noise_min_coverage: number;
+    bands: Record<string, string>;
+  };
+  routes: ScoredRoute[];
+};
+
 export const api = {
   getRefuges: (tier?: string) =>
     get<Refuge[]>("/refuges", tier ? { tier } : undefined),
   getNearbySensors: (lat: number, lon: number, radiusM = 300) =>
     get<NearbySensor[]>("/sensors/nearby", { lat, lon, radius_m: radiusM }),
+  getRoutes: (
+    startLat: number,
+    startLon: number,
+    endLat: number,
+    endLon: number
+  ) =>
+    get<RoutesResponse>("/routes", {
+      start_lat: startLat,
+      start_lon: startLon,
+      end_lat: endLat,
+      end_lon: endLon,
+    }),
 };

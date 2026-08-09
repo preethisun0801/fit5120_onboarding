@@ -5,6 +5,7 @@ import { MapPin, Navigation, Clock, Users, ChevronRight } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot";
+import LiveConditionsMap from "../components/LiveConditionsMap";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -87,9 +88,9 @@ export default function Home() {
       </div>
 
       {/* Map panel — desktop only, inline */}
-      <div className="hidden md:block p-6">
-        <p className="text-sm font-medium mb-3">Map</p>
-        <MapPreviewThumb tall />
+      <div className="hidden md:flex md:flex-col p-6 min-h-0">
+        <p className="text-sm font-medium mb-3">Conditions right now</p>
+        <LiveConditionsMap className="flex-1 min-h-0" />
       </div>
     </div>
   );

@@ -52,7 +52,11 @@ export default function Options() {
         {refuges.map((r) => (
           <li
             key={r.landmark_id}
-            onClick={() => navigate("/Selected", { state: { refuge: r } })}
+            onClick={() =>
+  navigate("/Selected", {
+    state: { refuge: r, origin: { lat: state.lat, lon: state.lon } },
+  })
+}
             className="cursor-pointer border border-[var(--color-border)] rounded-md p-4 hover:border-[var(--color-accent)]"
           >
             <div className="flex justify-between items-center">
