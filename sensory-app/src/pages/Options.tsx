@@ -17,14 +17,6 @@ type NavState = {
 
 const LOW_COVERAGE_THRESHOLD = 0.3;
 
-function bandToCrowdLevel(
-  band: ScoredRoute["band"]
-): "low" | "moderate" | "high" {
-  if (band === "Low") return "low";
-  if (band === "Moderate") return "moderate";
-  return "high";
-}
-
 function formatDuration(seconds: number) {
   return `${Math.round(seconds / 60)} min`;
 }

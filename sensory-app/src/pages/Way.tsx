@@ -10,6 +10,18 @@ import RouteMap from "../components/RouteMap";
 // Close enough to a maneuver point to count as "arrived" and advance.
 const ARRIVAL_RADIUS_M = 15;
 
+function bandLevel(band: string): "low" | "moderate" | "high" {
+  return band === "Low" ? "low" : band === "Moderate" ? "moderate" : "high";
+}
+
+function metres(m: number) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
+function minutes(seconds: number) {
+  return Math.max(0, Math.round(seconds / 60));
+}
+
 function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
   const R = 6371000;
   const p1 = (aLat * Math.PI) / 180;
@@ -21,21 +33,9 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function minutes(seconds: number) {
-  return Math.max(0, Math.round(seconds / 60));
-}
-
-function metres(m: number) {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
-}
-
-function bandLevel(band: string): "low" | "moderate" | "high" {
-  return band === "Low" ? "low" : band === "Moderate" ? "moderate" : "high";
-}
-
 export default function Way() {
   const navigate = useNavigate();
-  const { activeJourney, updateProgress, endJourney } = useJourney();
+  const { activeJourney, endJourney } = useJourney();
 
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -79,11 +79,9 @@ export default function Way() {
       if (nextStepIdx >= route.steps.length - 1) {
         // Reached the final step — the journey is complete.
         endJourney();
-      } else {
-        updateProgress(nextStepIdx + 1);
       }
     }
-  }, [position, route, nextStepIdx, updateProgress, endJourney]);
+  }, [position, route, nextStepIdx, endJourney]);
 
   if (!route) {
     return (

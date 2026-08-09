@@ -12,7 +12,7 @@ export default function BottomTabBar() {
   const { pathname } = useLocation();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex border-t border-[var(--color-border)] bg-[var(--color-card)]">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[1000] flex border-t border-[var(--color-border)] bg-[var(--color-card)]">
       {TABS.map(({ to, label, icon: Icon }) => {
         const active = pathname === to;
         return (

@@ -7,6 +7,7 @@ import Settings from "./pages/Settings";
 import About from "./pages/About";
 import Navbar from "./components/layout/Navbar";
 import BottomTabBar from "./components/layout/BottomTabBar";
+import JourneyBanner from "./components/layout/JourneyBanner";
 import { PreferencesProvider } from "./context/PreferencesContext";
 import { JourneyProvider } from "./context/JourneyContext";
 
@@ -27,6 +28,7 @@ function App() {
                 <Route path="/About" element={<About />} />
               </Routes>
             </main>
+            <JourneyBanner />
             <BottomTabBar />
           </div>
         </BrowserRouter>
