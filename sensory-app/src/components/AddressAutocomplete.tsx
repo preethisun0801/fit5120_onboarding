@@ -21,22 +21,31 @@ export default function AddressAutocomplete({
   }, [initialValue]);
 
   useEffect(() => {
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    if (query.trim().length < 3) {
-      setResults([]);
-      return;
-    }
-    debounceRef.current = window.setTimeout(async () => {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/geocode?text=${encodeURIComponent(query)}`
-      );
+  if (debounceRef.current) window.clearTimeout(debounceRef.current);
+  if (query.trim().length < 3) {
+    setResults([]);
+    return;
+  }
+  debounceRef.current = window.setTimeout(async () => {
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      if (!base) {
+        console.error("VITE_API_BASE_URL is not set — check sensory-app/.env");
+        return;
+      }
+      const res = await fetch(`${base}/geocode?text=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error(`Geocode request failed: ${res.status}`);
       const data = await res.json();
       setResults(data.results || []);
-    }, 300);
-    return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+    } catch (err) {
+      console.error("Geocode fetch failed:", err);
+      setResults([]);
+    }
+  }, 300);
+  return () => {
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+  };
+}, [query]);
 
   return (
     <div className="relative flex-1">
