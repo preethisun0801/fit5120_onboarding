@@ -262,7 +262,7 @@ export default function Way() {
       )}
 
       {quietOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center md:justify-center bg-black/30">
+        <div className="fixed inset-0 z-[1100] flex items-end md:items-center md:justify-center bg-black/30">
           <div className="w-full md:max-w-sm bg-[var(--color-card)] rounded-t-2xl md:rounded-2xl border border-[var(--color-border)] max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
               <p className="font-medium">Quiet places nearby</p>
