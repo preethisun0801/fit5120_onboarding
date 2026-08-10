@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Refuge } from "../lib/api";
 
 export default function Selected() {
-  const { state } = useLocation() as { state: { refuge: Refuge } | null };
+  const { state } = useLocation() as {
+  state: { refuge: Refuge; origin?: { lat: number; lon: number } } | null;
+};
   const navigate = useNavigate();
 
   if (!state?.refuge) {
@@ -27,7 +29,7 @@ export default function Selected() {
         {latitude}, {longitude}
       </p>
       <button
-        onClick={() => navigate("/Way", { state: { destination: state.refuge } })}
+        onClick={() => navigate("/Way", { state: { destination: state.refuge, origin: state.origin } })}
         className="mt-6 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-black font-medium px-4 py-2 rounded-md"
       >
         Navigate here

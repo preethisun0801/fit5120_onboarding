@@ -4,6 +4,8 @@ import sensorsRouter from "./routers/sensors";
 import refugesRouter from "./routers/refuges";
 import noiseRouter from "./routers/noise";
 import pedestrianRouter from "./routers/pedestrian";
+import routesRouter from "./routers/routes";
+import liveRouter from "./routers/live";
 
 const app = express();
 
@@ -11,9 +13,11 @@ app.use(cors({ origin: "http://localhost:5173", methods: ["GET"] }));
 app.use(express.json());
 
 app.use("/sensors", sensorsRouter);
+app.use("/routes", routesRouter);
 app.use("/refuges", refugesRouter);
 app.use("/noise", noiseRouter);
 app.use("/pedestrian", pedestrianRouter);
+app.use("/live", liveRouter);
 
 app.get("/", (_req, res) => res.json({ status: "ok", message: "API is running" }));
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
