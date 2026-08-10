@@ -8,4 +8,7 @@ export const pool = new Pool({
   port: Number(process.env.PGPORT) || 5432,
   user: process.env.PGUSER || "ta17",
   password: process.env.PGPASSWORD || "ta17_dev_password",
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
