@@ -72,7 +72,7 @@ export default function Selected() {
       <div className="p-5 md:p-6 md:border-r border-[var(--color-border)] md:overflow-y-auto order-2 md:order-1">
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={() => navigate("/Options")}
+            onClick={() => navigate(-1)}
             className="text-[var(--color-muted)]"
           >
             <ArrowLeft className="w-5 h-5" />

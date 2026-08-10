@@ -190,7 +190,7 @@ export default function Options() {
     <div className="max-w-2xl mx-auto px-6 pt-6 md:pt-24 pb-24 md:pb-6">
       <div className="flex items-center gap-3 mb-4">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(-1)}
           className="text-[var(--color-muted)]"
         >
           <ArrowLeft className="w-5 h-5" />
