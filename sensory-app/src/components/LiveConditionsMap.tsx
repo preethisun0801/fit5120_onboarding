@@ -99,7 +99,7 @@ export default function LiveConditionsMap({
 
   const [data, setData] = useState<LiveResponse | null>(null);
   const [refuges, setRefuges] = useState<LiveRefuge[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
   const [showRefuges, setShowRefuges] = useState(true);
 
   useLayoutEffect(() => {

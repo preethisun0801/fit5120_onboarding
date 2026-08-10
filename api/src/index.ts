@@ -12,7 +12,13 @@ import { startRefreshJob } from "./jobs/refreshSensorData";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173", methods: ["GET"] }));
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://sensory-aware.onrender.com"
+  ],
+  methods: ["GET"]
+}));
 
 // All endpoints are GET-only and none expect a body — bodies aren't part of
 // this API's design, so the limit only needs to be large enough that a
