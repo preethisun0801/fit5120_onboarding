@@ -232,11 +232,12 @@ def haversine_m(a, b, c, d):
     return 2 * R * math.asin(math.sqrt(h))
 
 
-def insert(cur, table, columns, rows):
+def insert(cur, table, columns, rows, conflict_cols=None):
     if not rows:
         log(f"    {table}: nothing to write")
         return
-    sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES %s ON CONFLICT DO NOTHING"
+    conflict = f"({', '.join(conflict_cols)})" if conflict_cols else ""
+    sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES %s ON CONFLICT {conflict} DO NOTHING"
     execute_values(cur, sql, rows, page_size=1000)
     log(f"    {table}: {len(rows):,} rows written")
 
@@ -283,6 +284,7 @@ def load_sensor(cur):
             "longitude",
         ],
         data,
+        conflict_cols=["location_id", "sensing_datetime"]
     )
     return {
         r["location_id"]: (r.get("latitude"), r.get("longitude"))
@@ -325,6 +327,7 @@ def load_pedestrian_realtime(cur):
             "is_estimated",
         ],
         data,
+        conflict_cols=["device_id", "received_at"]
     )
 
 
@@ -394,6 +397,7 @@ def load_pedestrian_baseline(cur, sensors):
             "observation_count",
         ],
         data,
+        conflict_cols=["location_id", "day_of_week", "hour_of_day"]
     )
 
 

@@ -1,9 +1,14 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
-async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+async function get<T>(
+  path: string,
+  params?: Record<string, string | number>
+): Promise<T> {
   const url = new URL(BASE_URL + path);
   if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    Object.entries(params).forEach(([k, v]) =>
+      url.searchParams.set(k, String(v))
+    );
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -32,7 +37,7 @@ export type NearbySensor = {
 
 // ---------------------------------------------------------------- routes
 
-export type Band = "Low" | "Moderate" | "High";
+export type Band = "Low" | "Moderate" | "High" | "Unknown";
 
 export type RoutePoint = {
   lat: number;
@@ -40,6 +45,8 @@ export type RoutePoint = {
   /** null where no sensor sits within the snap radius of this point */
   score: number | null;
   sensor: string | null;
+  /** 0–1 spatial confidence: 1 at the sensor, decaying to 0 at the snap radius edge */
+  confidence: number;
 };
 
 export type RouteRefuge = {
@@ -58,21 +65,22 @@ export type ScoredRoute = {
   recommended: boolean;
   band: Band;
   /** whole-route mean — sets the band a user reads */
-  avg_score: number;
+  avg_score: number | null;
   /** mean of the worst 20% of points — what the ranking is based on */
-  worst_score: number;
-  rank_score: number;
+  worst_score: number | null;
+  rank_score: number | null;
   distance_m: number;
   duration_s: number;
   /** share of sampled points with a sensor in range; below 0.5 warn the user */
   sensor_coverage: number;
-  basis: "crowd only" | "crowd+noise";
+  basis: "crowd only" | "crowd+noise" | "no data";
   noise: { shown: boolean; label: string | null; coverage: number };
   geometry: [number, number][];
   points: RoutePoint[];
   /** points scoring at or above this are the busiest stretch */
   worst_cutoff: number | null;
   refuges: RouteRefuge[];
+  steps: RouteStep[];
 };
 
 export type RoutesResponse = {
@@ -88,6 +96,18 @@ export type RoutesResponse = {
   routes: ScoredRoute[];
 };
 
+export type RouteStep = {
+  instruction: string;
+  name: string | null;
+  distance_m: number;
+  duration_s: number;
+  maneuver_type: number | null;
+  lat: number;
+  lon: number;
+};
+
+
+
 export const api = {
   getRefuges: (tier?: string) =>
     get<Refuge[]>("/refuges", tier ? { tier } : undefined),
@@ -97,12 +117,19 @@ export const api = {
     startLat: number,
     startLon: number,
     endLat: number,
-    endLon: number
+    endLon: number,
+    weights?: { crowdWeight: number; noiseWeight: number }
   ) =>
     get<RoutesResponse>("/routes", {
       start_lat: startLat,
       start_lon: startLon,
       end_lat: endLat,
       end_lon: endLon,
-    }),
+      ...(weights
+        ? {
+            crowd_weight: weights.crowdWeight,
+            noise_weight: weights.noiseWeight
+          }
+        : {})
+    })
 };

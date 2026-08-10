@@ -1,5 +1,5 @@
 // sensory-app/src/components/LiveConditionsMap.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -33,7 +33,13 @@ type LiveSensor = {
 
 type LiveResponse = {
   reference_time: string;
-  summary: { total: number; Low: number; Moderate: number; High: number; dominant: Band };
+  summary: {
+    total: number;
+    Low: number;
+    Moderate: number;
+    High: number;
+    dominant: Band;
+  };
   sensors: LiveSensor[];
 };
 
@@ -67,14 +73,25 @@ function refugeIcon(indoor: boolean, fill: string) {
              <circle cx="12" cy="12" r="11" fill="${fill}"/>${glyph}
            </svg>`,
     iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconAnchor: [10, 10]
   });
 }
 
 export default function LiveConditionsMap({
   className = "",
+  interactive = true,
+  onSummary
 }: {
   className?: string;
+  interactive?: boolean;
+  onSummary?: (
+    summary: {
+      band: "Low" | "Moderate" | "High";
+      low: number;
+      moderate: number;
+      high: number;
+    } | null
+  ) => void;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -84,6 +101,49 @@ export default function LiveConditionsMap({
   const [refuges, setRefuges] = useState<LiveRefuge[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showRefuges, setShowRefuges] = useState(true);
+
+  useLayoutEffect(() => {
+    if (!holder.current || map.current) return;
+
+    const mapInstance = L.map(holder.current, {
+      zoomControl: interactive,
+      inertia: false,
+      dragging: interactive,
+      touchZoom: interactive,
+      scrollWheelZoom: interactive,
+      doubleClickZoom: interactive,
+      boxZoom: interactive,
+      keyboard: interactive
+    }).setView([-37.8136, 144.9631], 14);
+
+    map.current = mapInstance;
+
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
+          '&copy; <a href="https://carto.com/attributions">CARTO</a> | ' +
+          "Sensor data &copy; City of Melbourne (CC BY 4.0)",
+        maxZoom: 19
+      }
+    ).addTo(mapInstance);
+
+    layer.current = L.layerGroup().addTo(mapInstance);
+
+    const refreshMap = () => mapInstance.invalidateSize();
+    refreshMap();
+    window.addEventListener("resize", refreshMap);
+    window.addEventListener("orientationchange", refreshMap);
+
+    return () => {
+      window.removeEventListener("resize", refreshMap);
+      window.removeEventListener("orientationchange", refreshMap);
+      mapInstance.remove();
+      map.current = null;
+      layer.current = null;
+    };
+  }, [interactive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,43 +155,34 @@ export default function LiveConditionsMap({
       fetch(`${BASE_URL}/live/refuges`).then((r) => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json() as Promise<LiveRefuge[]>;
-      }),
-    ])
-      .then(([live, rf]) => {
-        if (cancelled) return;
-        setData(live);
-        setRefuges(rf);
       })
-      .catch(() => !cancelled && setError("Live conditions are unavailable."));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    ]).then(([live, rf]) => {
+      if (cancelled) return;
+      setData(live);
+      setRefuges(rf);
 
-  useEffect(() => {
-    if (!holder.current || map.current) return;
-    map.current = L.map(holder.current, {
-      zoomControl: true,
-      inertia: false,
-    }).setView([-37.8136, 144.9631], 14);
-
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
-          '&copy; <a href="https://carto.com/attributions">CARTO</a> | ' +
-          "Sensor data &copy; City of Melbourne (CC BY 4.0)",
-        maxZoom: 19,
+      if (onSummary) {
+        const sensors = live.sensors ?? [];
+        if (sensors.length === 0) {
+          onSummary(null);
+        } else {
+          const counts = { Low: 0, Moderate: 0, High: 0 };
+          for (const s of sensors) counts[s.band]++;
+          // Overall band = whichever level has the most sensors reporting it —
+          // a simple majority vote rather than averaging raw scores, so one
+          // extreme outlier sensor can't skew the headline summary.
+          const band = (Object.keys(counts) as (keyof typeof counts)[]).reduce(
+            (a, b) => (counts[a] >= counts[b] ? a : b)
+          );
+          onSummary({
+            band,
+            low: counts.Low,
+            moderate: counts.Moderate,
+            high: counts.High
+          });
+        }
       }
-    ).addTo(map.current);
-
-    layer.current = L.layerGroup().addTo(map.current);
-
-    return () => {
-      map.current?.remove();
-      map.current = null;
-    };
+    });
   }, []);
 
   useEffect(() => {
@@ -140,7 +191,7 @@ export default function LiveConditionsMap({
     const scale: Record<Band, string> = {
       Low: token("--color-crowd-low", "#D4D4D2"),
       Moderate: token("--color-crowd-moderate", "#6B7280"),
-      High: token("--color-crowd-high", "#1F2430"),
+      High: token("--color-crowd-high", "#1F2430")
     };
     const accent = token("--color-accent", "#2F5FE0");
     const muted = token("--color-muted", "#6B7280");
@@ -157,7 +208,7 @@ export default function LiveConditionsMap({
         color: scale[s.band],
         weight: 1,
         fillColor: scale[s.band],
-        fillOpacity: 0.75,
+        fillOpacity: 0.75
       })
         .bindPopup(
           `<div style="font-family:Geist,system-ui,sans-serif;min-width:170px">
@@ -188,19 +239,19 @@ export default function LiveConditionsMap({
   }, [data, refuges, showRefuges]);
 
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex h-full min-h-[320px] flex-col gap-2 ${className}`}>
       <div
         ref={holder}
         role="application"
         aria-label="Live sensory conditions across the central city"
-        className="flex-1 min-h-[320px] rounded-lg border border-[var(--color-border)]"
+        className={`h-full min-h-[320px] w-full rounded-lg border border-[var(--color-border)] ${
+          !interactive ? "pointer-events-none" : ""
+        }`}
       />
 
-      {error && (
-        <p className="text-sm text-[var(--color-danger)]">{error}</p>
-      )}
+      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
 
-      {data && (
+      {interactive && data && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--color-muted)]">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[var(--color-crowd-low)]" />
@@ -226,15 +277,15 @@ export default function LiveConditionsMap({
         </div>
       )}
 
-      {data && (
+      {interactive && data && (
         <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-          Each sensor is compared with its own history for this hour and weekday,
-          so a busy street at midday can read calmer than a quiet one at
-          midnight. As at{" "}
+          Each sensor is compared with its own history for this hour and
+          weekday, so a busy street at midday can read calmer than a quiet one
+          at midnight. As at{" "}
           {new Date(data.reference_time).toLocaleString("en-AU", {
             weekday: "short",
             hour: "numeric",
-            minute: "2-digit",
+            minute: "2-digit"
           })}
           .
         </p>

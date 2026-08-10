@@ -14,8 +14,6 @@ dist-ssr
 
 .env
 
-api/.env
-api/venv/
 
 # Editor directories and files
 .vscode/*

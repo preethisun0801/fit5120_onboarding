@@ -1,19 +1,37 @@
-// sensory-app/src/pages/Home.tsx
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Navigation, Clock, Users, ChevronRight } from "lucide-react";
-import Card from "../components/ui/Card";
+import {
+  MapPin,
+  Navigation,
+  Clock,
+  Users,
+  ChevronRight,
+  LocateFixed
+} from "lucide-react";
 import Button from "../components/ui/Button";
-import CrowdDot from "../components/ui/CrowdDot";
+import CrowdDot from "../components/ui/CrowdDot.tsx";
 import LiveConditionsMap from "../components/LiveConditionsMap";
+import AddressAutocomplete, {
+  type LatLon
+} from "../components/AddressAutocomplete.tsx";
 
 export default function Home() {
   const navigate = useNavigate();
-  const [destination, setDestination] = useState("");
+  const [crowdSummary, setCrowdSummary] = useState<{
+    band: "Low" | "Moderate" | "High";
+    low: number;
+    moderate: number;
+    high: number;
+  } | null>(null);
+  const [from, setFrom] = useState<LatLon | null>(null);
+  const [fromText, setFromText] = useState("");
+  const [to, setTo] = useState<LatLon | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [leaveMode, setLeaveMode] = useState<"now" | "later">("now");
+  const [leaveTime, setLeaveTime] = useState("");
 
-  function handleFindRoutes() {
+  function useCurrentLocation() {
     setError(null);
     if (!navigator.geolocation) {
       setError("Geolocation isn't available in this browser.");
@@ -23,13 +41,12 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
-        navigate("/Options", {
-          state: {
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-            destination,
-          },
+        setFrom({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          label: "Your Current Location"
         });
+        setFromText("Your Current Location");
       },
       () => {
         setLocating(false);
@@ -38,68 +55,147 @@ export default function Home() {
     );
   }
 
+  function handleFindRoutes() {
+    setError(null);
+    if (!from) {
+      setError(
+        "Set a starting point — or tap the location icon to use where you are."
+      );
+      return;
+    }
+    if (!to) {
+      setError("Pick a destination from the suggestions list.");
+      return;
+    }
+
+    let plannedTime: string | null = null;
+    if (leaveMode === "later") {
+      if (!leaveTime) {
+        setError("Pick a departure time, or switch back to Leave now.");
+        return;
+      }
+      const [h, m] = leaveTime.split(":").map(Number);
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); // rolls to tomorrow if that time already passed today
+      plannedTime = d.toISOString();
+    }
+
+    navigate("/Options", {
+      state: {
+        lat: from.lat,
+        lon: from.lon,
+        destLat: to.lat,
+        destLon: to.lon,
+        destination: to.label,
+        plannedTime
+      }
+    });
+  }
+
   return (
     <div className="md:grid md:grid-cols-[380px_1fr] md:h-[calc(100vh-4rem)]">
-      {/* Form panel */}
       <div className="p-5 md:p-6 md:border-r border-[var(--color-border)] md:overflow-y-auto">
         <h1 className="text-xl font-semibold mb-5">Plan a calmer journey</h1>
 
         <div className="space-y-4">
           <Field label="From">
-            <MapPin className="w-4 h-4 text-[var(--color-muted)]" />
-            <span className="text-[var(--color-muted)]">Current location</span>
+            <MapPin className="w-4 h-4 text-[var(--color-muted)] shrink-0" />
+            <AddressAutocomplete
+              initialValue={fromText}
+              placeholder="Enter starting point"
+              onSelect={(loc, text) => {
+                setFrom(loc);
+                setFromText(text);
+              }}
+            />
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              title="Use current location"
+              className="shrink-0 text-[var(--color-accent)]"
+            >
+              <LocateFixed className="w-4 h-4" />
+            </button>
           </Field>
 
           <Field label="To">
-            <Navigation className="w-4 h-4 text-[var(--color-muted)]" />
-            <input
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
+            <Navigation className="w-4 h-4 text-[var(--color-muted)] shrink-0" />
+            <AddressAutocomplete
               placeholder="Enter destination"
-              className="bg-transparent outline-none flex-1 text-sm placeholder:text-[var(--color-muted)]"
+              onSelect={(loc) => setTo(loc)}
             />
           </Field>
 
-          <Field label="Leave">
-            <Clock className="w-4 h-4 text-[var(--color-muted)]" />
-            <span>Leave now</span>
-          </Field>
+          <label className="block">
+            <span className="text-xs text-[var(--color-muted)] mb-1 block">
+              Leave
+            </span>
+            <div className="flex items-center gap-2 border border-[var(--color-border)] rounded-lg px-3 py-2.5">
+              <Clock className="w-4 h-4 text-[var(--color-muted)] shrink-0" />
+              <select
+                value={leaveMode}
+                onChange={(e) =>
+                  setLeaveMode(e.target.value as "now" | "later")
+                }
+                className="bg-transparent outline-none text-sm"
+              >
+                <option value="now">Leave now</option>
+                <option value="later">Leave at…</option>
+              </select>
+              {leaveMode === "later" && (
+                <input
+                  type="time"
+                  value={leaveTime}
+                  onChange={(e) => setLeaveTime(e.target.value)}
+                  className="bg-transparent outline-none text-sm ml-auto"
+                />
+              )}
+            </div>
+          </label>
         </div>
 
-        {error && <p className="text-[var(--color-danger)] text-sm mt-3">{error}</p>}
+        {locating && (
+          <p className="text-[var(--color-muted)] text-sm mt-3">Finding you…</p>
+        )}
+        {error && (
+          <p className="text-[var(--color-danger)] text-sm mt-3">{error}</p>
+        )}
 
-        <Button className="w-full mt-5" onClick={handleFindRoutes} disabled={locating}>
-          {locating ? "Finding you…" : "Find sensory-aware routes"}
+        <Button className="w-full mt-5" onClick={handleFindRoutes}>
+          Find sensory-aware routes
         </Button>
 
-        {/* Map preview — mobile only, links out to the full map tab */}
-        <Card
-          className="mt-5 p-3 md:hidden cursor-pointer"
-          onClick={() => navigate("/Way")}
-        >
-          <MapPreviewThumb />
-          <ConditionsRow />
-        </Card>
+        <div className="mt-5 md:hidden">
+          <p className="text-sm font-medium mb-2">Conditions right now</p>
+          <LiveConditionsMap
+            className="flex-1 min-h-0"
+            onSummary={setCrowdSummary}
+          />
+        </div>
 
-        {/* Conditions summary — desktop, below the form */}
         <div className="hidden md:block mt-6">
-          <ConditionsRow />
+          <ConditionsRow summary={crowdSummary} />
         </div>
       </div>
 
-      {/* Map panel — desktop only, inline */}
       <div className="hidden md:flex md:flex-col p-6 min-h-0">
         <p className="text-sm font-medium mb-3">Conditions right now</p>
-        <LiveConditionsMap className="flex-1 min-h-0" />
+        <LiveConditionsMap
+          className="h-32 [&>div]:min-h-0"
+          onSummary={setCrowdSummary}
+        />
       </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs text-[var(--color-muted)] mb-1 block">{label}</span>
+      <span className="text-xs text-[var(--color-muted)] mb-1 block">
+        {label}
+      </span>
       <div className="flex items-center gap-2 border border-[var(--color-border)] rounded-lg px-3 py-2.5">
         {children}
       </div>
@@ -107,32 +203,34 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ConditionsRow() {
+function ConditionsRow({
+  summary
+}: {
+  summary: {
+    band: "Low" | "Moderate" | "High";
+    low: number;
+    moderate: number;
+    high: number;
+  } | null;
+}) {
+  const level = summary
+    ? (summary.band.toLowerCase() as "low" | "moderate" | "high")
+    : "moderate";
+  const label = summary ? `${summary.band} crowds` : "Checking conditions…";
+  const detail = summary
+    ? `${summary.low} sensor${summary.low === 1 ? "" : "s"} quiet, ${summary.moderate} moderate, ${summary.high} busy right now.`
+    : "Loading live sensor data.";
+
   return (
     <div className="flex items-center gap-3 pt-3 mt-3 border-t border-[var(--color-border)]">
       <Users className="w-5 h-5 text-[var(--color-muted)]" />
       <div className="flex-1">
         <p className="text-sm font-medium flex items-center gap-1.5">
-          Moderate crowds <CrowdDot level="moderate" />
+          {label} {summary && <CrowdDot level={level} />}
         </p>
-        <p className="text-xs text-[var(--color-muted)]">Crowd levels are moderate in most areas.</p>
+        <p className="text-xs text-[var(--color-muted)]">{detail}</p>
       </div>
       <ChevronRight className="w-4 h-4 text-[var(--color-muted)]" />
-    </div>
-  );
-}
-
-function MapPreviewThumb({ tall = false }: { tall?: boolean }) {
-  // Static styled placeholder until the live map (react-leaflet / mapbox-gl)
-  // is wired up in the Way page — see note below.
-  return (
-    <div
-      className={`relative rounded-lg overflow-hidden bg-[#EDE9DD] ${tall ? "h-full min-h-[400px]" : "h-32"}`}
-    >
-      <div className="absolute inset-0 bg-[linear-gradient(#00000008_1px,transparent_1px),linear-gradient(90deg,#00000008_1px,transparent_1px)] bg-[size:24px_24px]" />
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 150" preserveAspectRatio="none">
-        <path d="M20,110 L180,110 L280,40" stroke="var(--color-route)" strokeWidth="4" fill="none" strokeLinecap="round" />
-      </svg>
     </div>
   );
 }

@@ -45,7 +45,7 @@ function endpointIcon(letter: string, fill: string) {
                    font-family="Geist, system-ui, sans-serif">${letter}</text>
            </svg>`,
     iconSize: [26, 26],
-    iconAnchor: [13, 13],
+    iconAnchor: [13, 13]
   });
 }
 
@@ -62,7 +62,7 @@ function refugeIcon(indoor: boolean, fill: string) {
              <circle cx="12" cy="12" r="11" fill="${fill}"/>${glyph}
            </svg>`,
     iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    iconAnchor: [11, 11]
   });
 }
 
@@ -72,7 +72,7 @@ export default function RouteMap({
   onSelect,
   start,
   end,
-  showWorst = true,
+  showWorst = true
 }: Props) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -84,7 +84,7 @@ export default function RouteMap({
     map.current = L.map(holder.current, {
       zoomControl: true,
       // Inertia scrolling can feel disorienting; this audience does not need it.
-      inertia: false,
+      inertia: false
     }).setView([-37.813, 144.963], 15);
 
     L.tileLayer(
@@ -94,7 +94,7 @@ export default function RouteMap({
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
           '&copy; <a href="https://carto.com/attributions">CARTO</a> | ' +
           "Sensor data &copy; City of Melbourne (CC BY 4.0)",
-        maxZoom: 19,
+        maxZoom: 19
       }
     ).addTo(map.current);
 
@@ -132,27 +132,54 @@ export default function RouteMap({
       L.polyline(active.geometry, {
         color: primary,
         weight: 6,
-        opacity: 0.9,
+        opacity: 0.9
       }).addTo(group);
 
       if (showWorst && active.worst_cutoff !== null) {
-        const cutoff = active.worst_cutoff;
-        active.points
-          .filter((p) => p.score !== null && p.score >= cutoff)
-          .forEach((p) => {
-            L.circleMarker([p.lat, p.lon], {
-              radius: 8,
-              color: highlight,
-              weight: 3,
-              fillColor: highlight,
-              fillOpacity: 0.45,
-            })
-              .bindTooltip(
-                p.sensor ? `Busiest stretch — near ${p.sensor}` : "Busiest stretch",
-                { direction: "top" }
-              )
-              .addTo(group);
-          });
+  const cutoff = active.worst_cutoff;
+  active.points
+    .filter((p) => p.score !== null && p.score >= cutoff)
+    .forEach((p) => {
+      const radius = 5 + p.confidence * 4; // 5–9px
+      const fillOpacity = 0.55 + p.confidence * 0.35; // 0.55–0.9 — always visible, still gradates
+      const confidencePct = Math.round(p.confidence * 100);
+
+      L.circleMarker([p.lat, p.lon], {
+        radius,
+        color: "#8a6a00", // fixed darker amber stroke — stays legible regardless of fill opacity
+        weight: p.confidence >= 0.5 ? 3 : 2,
+        fillColor: highlight,
+        fillOpacity,
+        dashArray: p.confidence < 0.4 ? "3,3" : undefined,
+      })
+        .bindTooltip(
+          p.sensor
+            ? `Busiest stretch — near ${p.sensor} (${confidencePct}% confidence)`
+            : "Busiest stretch",
+          { direction: "top" }
+        )
+        .addTo(group);
+    });
+}
+
+      if (active.basis === "no data") {
+        const mid = active.geometry[Math.floor(active.geometry.length / 2)];
+        if (mid) {
+          L.marker(mid, {
+            icon: L.divIcon({ className: "", html: "", iconSize: [0, 0] })
+          })
+            .bindPopup(
+              `<div style="font-family:Geist,system-ui,sans-serif;min-width:180px">
+           <strong>No sensor data here</strong><br/>
+           <span style="color:${muted};font-size:13px">
+             This area is outside current sensor coverage, so crowd and noise
+             levels aren't available. Route shown by distance and time only.
+           </span>
+         </div>`
+            )
+            .addTo(group)
+            .openPopup();
+        }
       }
 
       // Stretches with no sensor in range. Marked so a gap in the data reads as
@@ -165,7 +192,7 @@ export default function RouteMap({
             color: muted,
             weight: 1,
             fillOpacity: 0,
-            dashArray: "2,2",
+            dashArray: "2,2"
           })
             .bindTooltip("No sensor nearby — not rated", { direction: "top" })
             .addTo(group);
@@ -185,7 +212,7 @@ export default function RouteMap({
       });
 
       map.current.fitBounds(L.polyline(active.geometry).getBounds(), {
-        padding: [40, 40],
+        padding: [40, 40]
       });
     }
 
