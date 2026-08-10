@@ -5,10 +5,10 @@ import teamPhoto from "../assets/team-photo.jpeg";
 
 const TEAM = [
   { name: "Parvathi Selva Ganeshan", role: "Security Analyst" },
-  { name: "Merline Biju", role: "Role / focus area" },
+  { name: "Merline Biju", role: "Business Analyst" },
   { name: "Preethi Sundarrajan", role: "Data Analyst/Web Developer" },
-  { name: "Tao Pan", role: "Role / focus area" },
-  { name: "Jiayu Bu", role: "Role / focus area" },
+  { name: "Tao Pan", role: "DevOps" },
+  { name: "Jiayu Bu", role: "Data Scientist" },
 ];
 
 const DATA_SOURCES = [
