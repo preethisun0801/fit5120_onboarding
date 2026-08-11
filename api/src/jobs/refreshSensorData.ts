@@ -7,6 +7,10 @@ const DB_MIN = 25.0;
 const DB_MAX = 100.0;
 const NOISE_WINDOW_HOURS = 3; // narrow recent window — NOT load_data.py's full HISTORY_FROM pull
 const INTERVAL_MS = 5 * 60 * 1000;
+const REQUEST_GAP_MS = 5 * 1000;
+
+const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 let isRunning = false;
 
@@ -150,7 +154,22 @@ async function runRefresh() {
   console.log(`[refresh] Starting at ${startedAt}`);
 
   try {
-    const [pedRows, noiseRows] = await Promise.all([refreshPedestrian(), refreshNoise()]);
+    let pedRows = 0;
+let noiseRows = 0;
+
+try {
+  pedRows = await refreshPedestrian();
+} catch (err) {
+  console.warn("[refresh] Pedestrian refresh failed:", err);
+}
+
+await sleep(REQUEST_GAP_MS);
+
+try {
+  noiseRows = await refreshNoise();
+} catch (err) {
+  console.warn("[refresh] Noise refresh failed:", err);
+}
     console.log(
       `[refresh] Done — ${pedRows} new pedestrian rows, ${noiseRows} new noise rows.`
     );
