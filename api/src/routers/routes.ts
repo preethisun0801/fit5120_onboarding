@@ -40,7 +40,7 @@ const MIN_NOISE_COVERAGE = 0.25;
 // Sensor coverage is limited to the City of Melbourne, so requests outside it
 // cannot be scored. Validating the area also satisfies the coordinate-range
 // check in our security plan.
-const BOUNDS = { minLat: -38.0, maxLat: -37.7, minLon: 144.8, maxLon: 145.15 };
+const BOUNDS = { minLat: -37.87, maxLat: -37.76, minLon: 144.87, maxLon: 145.02 };
 
 // ---------------------------------------------------------------- types
 
@@ -91,6 +91,13 @@ function haversineM(aLat: number, aLon: number, bLat: number, bLon: number) {
   const h =
     Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function inArea(lat: number, lon: number) {
+  return (
+    lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat &&
+    lon >= BOUNDS.minLon && lon <= BOUNDS.maxLon
+  );
 }
 
 /**
@@ -554,6 +561,15 @@ router.get(
       const startLon = nums[1] as number;
       const endLat = nums[2] as number;
       const endLon = nums[3] as number;
+
+      if (!inArea(startLat, startLon) || !inArea(endLat, endLon)) {   // ← new, insert here
+        res.status(400).json({
+          detail:
+            "This app currently covers Melbourne's CBD only, where sensor data is available. Try a starting point or destination within the city centre.",
+          code: "OUTSIDE_COVERAGE"
+        });
+        return;
+      }
 
       // Optional client-supplied weighting — defaults match the original fixed
       // constants (0.7 / 0.3) so requests without these params behave unchanged.
