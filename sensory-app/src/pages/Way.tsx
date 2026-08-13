@@ -470,6 +470,15 @@ export default function Way() {
                       })}
                     </ul>
                   )}
+                  {modalReferenceTime && !routesLoading && !routesError && (
+                    <p className="text-xs text-[var(--color-muted)] mt-3">
+                      Conditions as of{" "}
+                      {new Date(modalReferenceTime).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })}
+                    </p>
+                  )}
                 </>
               )}
 
