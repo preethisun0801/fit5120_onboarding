@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, Navigation2, MapPin, LogOut, Layers, X, ArrowLeft,
-  Volume2, TreePine, Clock
+  Users,
+  Navigation2,
+  MapPin,
+  LogOut,
+  Layers,
+  X,
+  ArrowLeft,
+  Volume2,
+  TreePine,
+  Clock
 } from "lucide-react";
 import { api, type Refuge, type ScoredRoute } from "../lib/api";
 import { useJourney } from "../context/JourneyContext";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot";
 import RouteMap from "../components/RouteMap";
+import { isInCbdBounds } from "../lib/bounds";
 
 const ARRIVAL_RADIUS_M = 15;
 const LOW_COVERAGE_THRESHOLD = 0.3;
@@ -44,11 +53,19 @@ type ModalStep = "refuges" | "routes" | "detail";
 export default function Way() {
   const navigate = useNavigate();
   const {
-    journeyRef, route, position, geoError, routeChanged, loading,
-    startJourney, endJourney
+    journeyRef,
+    route,
+    position,
+    geoError,
+    routeChanged,
+    loading,
+    startJourney,
+    endJourney
   } = useJourney();
 
-  const [localPosition, setLocalPosition] = useState<[number, number] | null>(null);
+  const [localPosition, setLocalPosition] = useState<[number, number] | null>(
+    null
+  );
   const [localGeoError, setLocalGeoError] = useState<string | null>(null);
   const watchId = useRef<number | null>(null);
 
@@ -64,7 +81,9 @@ export default function Way() {
   const [routesError, setRoutesError] = useState<string | null>(null);
   const [modalRoutes, setModalRoutes] = useState<ScoredRoute[]>([]);
   const [modalSelectedId, setModalSelectedId] = useState<number | null>(null);
-  const [modalReferenceTime, setModalReferenceTime] = useState<string | null>(null);
+  const [modalReferenceTime, setModalReferenceTime] = useState<string | null>(
+    null
+  );
   const [modalDestLabel, setModalDestLabel] = useState<string>("");
   const [modalAnchor, setModalAnchor] = useState<[number, number] | null>(null);
   const [modalDest, setModalDest] = useState<[number, number] | null>(null);
@@ -89,7 +108,8 @@ export default function Way() {
       { enableHighAccuracy: true, maximumAge: 5000 }
     );
     return () => {
-      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+      if (watchId.current !== null)
+        navigator.geolocation.clearWatch(watchId.current);
     };
   }, [route]);
 
@@ -98,7 +118,12 @@ export default function Way() {
     if (!route || !currentPosition) return;
     const target = route.steps[nextStepIdx];
     if (!target) return;
-    const d = haversineM(currentPosition[0], currentPosition[1], target.lat, target.lon);
+    const d = haversineM(
+      currentPosition[0],
+      currentPosition[1],
+      target.lat,
+      target.lon
+    );
     if (d <= ARRIVAL_RADIUS_M && nextStepIdx >= route.steps.length - 1) {
       endJourney();
     }
@@ -125,18 +150,31 @@ export default function Way() {
 
   const steps = route.steps;
   const upcoming = steps[nextStepIdx] ?? null;
-  const arrived = steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
+  const arrived =
+    steps.length > 0 && nextStepIdx >= steps.length - 1 && !!upcoming;
 
   const distToNext =
     currentPosition && upcoming
-      ? haversineM(currentPosition[0], currentPosition[1], upcoming.lat, upcoming.lon)
+      ? haversineM(
+          currentPosition[0],
+          currentPosition[1],
+          upcoming.lat,
+          upcoming.lon
+        )
       : (upcoming?.distance_m ?? 0);
 
-  const remainingLegs = route.steps.slice(nextStepIdx).reduce((sum, s) => sum + s.distance_m, 0);
+  const remainingLegs = route.steps
+    .slice(nextStepIdx)
+    .reduce((sum, s) => sum + s.distance_m, 0);
   const remainingDistance = distToNext + remainingLegs;
   const rawRemainingDuration =
-    route.distance_m > 0 ? (remainingDistance / route.distance_m) * route.duration_s : 0;
-  const remainingDuration = Math.min(rawRemainingDuration, route.duration_s * 1.5);
+    route.distance_m > 0
+      ? (remainingDistance / route.distance_m) * route.duration_s
+      : 0;
+  const remainingDuration = Math.min(
+    rawRemainingDuration,
+    route.duration_s * 1.5
+  );
 
   const aheadWarning =
     currentPosition && route.worst_cutoff !== null
@@ -144,20 +182,31 @@ export default function Way() {
           (p) =>
             p.score !== null &&
             p.score >= (route.worst_cutoff as number) &&
-            haversineM(currentPosition[0], currentPosition[1], p.lat, p.lon) <= 250
+            haversineM(currentPosition[0], currentPosition[1], p.lat, p.lon) <=
+              250
         )
       : false;
 
-  const referenceLegLength = route.steps[nextStepIdx - 1]?.distance_m ?? upcoming?.distance_m ?? 0;
+  const referenceLegLength =
+    route.steps[nextStepIdx - 1]?.distance_m ?? upcoming?.distance_m ?? 0;
   const positionLooksValid =
     !currentPosition || !upcoming || referenceLegLength === 0
       ? true
       : distToNext <= Math.max(referenceLegLength * 3, 100);
-  const effectiveDistToNext = positionLooksValid ? distToNext : referenceLegLength;
+  const effectiveDistToNext = positionLooksValid
+    ? distToNext
+    : referenceLegLength;
 
   function openQuietSpaces() {
     setQuietOpen(true);
     setModalStep("refuges");
+    const anchor = currentPosition ?? route!.geometry[0];
+    if (!isInCbdBounds(anchor[0], anchor[1])) {
+      setRefugeError(
+        "You're currently outside Melbourne's CBD, where this feature is available."
+      );
+      return;
+    }
     if (refuges.length > 0 || refugeLoading) return;
     setRefugeLoading(true);
     setRefugeError(null);
@@ -180,10 +229,14 @@ export default function Way() {
       .then((res) => {
         setModalRoutes(res.routes);
         setModalReferenceTime(res.reference_time);
-        setModalSelectedId(res.routes.find((x) => x.recommended)?.id ?? res.routes[0]?.id ?? null);
+        setModalSelectedId(
+          res.routes.find((x) => x.recommended)?.id ?? res.routes[0]?.id ?? null
+        );
         setModalStep("routes");
       })
-      .catch(() => setRoutesError("Couldn't find a route to that spot right now."))
+      .catch(() =>
+        setRoutesError("Couldn't find a route to that spot right now.")
+      )
       .finally(() => setRoutesLoading(false));
   }
 
@@ -241,7 +294,8 @@ export default function Way() {
       ) : null}
       {!positionLooksValid && (
         <p className="text-xs text-[var(--color-muted)] mb-2">
-          Your location doesn't match this route — showing planned distances instead of live ones.
+          Your location doesn't match this route — showing planned distances
+          instead of live ones.
         </p>
       )}
       {aheadWarning && (
@@ -345,7 +399,9 @@ export default function Way() {
             <div className="flex items-center gap-2 p-4 border-b border-[var(--color-border)]">
               {modalStep !== "refuges" && (
                 <button
-                  onClick={() => setModalStep(modalStep === "detail" ? "routes" : "refuges")}
+                  onClick={() =>
+                    setModalStep(modalStep === "detail" ? "routes" : "refuges")
+                  }
                   className="text-[var(--color-muted)] shrink-0"
                   aria-label="Back"
                 >
@@ -367,17 +423,38 @@ export default function Way() {
             </div>
 
             <div className="p-4">
+              {routesError && (
+                <p className="text-sm text-[var(--color-danger)] mb-3">
+                  {routesError}
+                </p>
+              )}
               {/* Step 1 — refuge list */}
               {modalStep === "refuges" && (
                 <>
-                  {refugeLoading && <p className="text-sm text-[var(--color-muted)]">Loading…</p>}
-                  {refugeError && <p className="text-sm text-[var(--color-danger)]">{refugeError}</p>}
+                  {refugeLoading && (
+                    <p className="text-sm text-[var(--color-muted)]">
+                      Loading…
+                    </p>
+                  )}
+                  {refugeError && (
+                    <p className="text-sm text-[var(--color-danger)]">
+                      {refugeError}
+                    </p>
+                  )}
                   {!refugeLoading && !refugeError && (
                     <ul className="space-y-2">
                       {refuges
                         .map((r) => {
                           const anchor = currentPosition ?? route!.geometry[0];
-                          return { r, d: haversineM(anchor[0], anchor[1], r.latitude, r.longitude) };
+                          return {
+                            r,
+                            d: haversineM(
+                              anchor[0],
+                              anchor[1],
+                              r.latitude,
+                              r.longitude
+                            )
+                          };
                         })
                         .sort((a, b) => a.d - b.d)
                         .slice(0, 6)
@@ -388,9 +465,12 @@ export default function Way() {
                               className="w-full flex items-center justify-between text-left rounded-lg border border-[var(--color-border)] px-3 py-2.5 hover:border-[var(--color-accent)]"
                             >
                               <div>
-                                <p className="text-sm font-medium">{r.feature_name}</p>
+                                <p className="text-sm font-medium">
+                                  {r.feature_name}
+                                </p>
                                 <p className="text-xs text-[var(--color-muted)]">
-                                  {r.is_indoor ? "Indoor" : "Outdoor"} · {r.sensory_tier}
+                                  {r.is_indoor ? "Indoor" : "Outdoor"} ·{" "}
+                                  {r.sensory_tier}
                                 </p>
                               </div>
                               <span className="text-xs text-[var(--color-muted)] shrink-0 ml-2">
@@ -400,7 +480,9 @@ export default function Way() {
                           </li>
                         ))}
                       {refuges.length === 0 && (
-                        <p className="text-sm text-[var(--color-muted)]">No quiet places found.</p>
+                        <p className="text-sm text-[var(--color-muted)]">
+                          No quiet places found.
+                        </p>
                       )}
                     </ul>
                   )}
@@ -411,13 +493,20 @@ export default function Way() {
               {modalStep === "routes" && (
                 <>
                   {routesLoading && (
-                    <p className="text-sm text-[var(--color-muted)]">Finding calmer routes…</p>
+                    <p className="text-sm text-[var(--color-muted)]">
+                      Finding calmer routes…
+                    </p>
                   )}
-                  {routesError && <p className="text-sm text-[var(--color-danger)]">{routesError}</p>}
+                  {routesError && (
+                    <p className="text-sm text-[var(--color-danger)]">
+                      {routesError}
+                    </p>
+                  )}
                   {!routesLoading && !routesError && (
                     <ul className="space-y-3">
                       {modalRoutes.map((r) => {
-                        const lowCoverage = r.sensor_coverage < LOW_COVERAGE_THRESHOLD;
+                        const lowCoverage =
+                          r.sensor_coverage < LOW_COVERAGE_THRESHOLD;
                         return (
                           <li key={r.id}>
                             <button
@@ -437,7 +526,9 @@ export default function Way() {
                                     Recommended
                                   </span>
                                 ) : (
-                                  <span className="text-sm font-medium">Option {r.rank}</span>
+                                  <span className="text-sm font-medium">
+                                    Option {r.rank}
+                                  </span>
                                 )}
                                 <span className="text-xs text-[var(--color-muted)]">
                                   {minutes(r.duration_s)} min
@@ -445,18 +536,22 @@ export default function Way() {
                               </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-muted)]">
                                 <span className="flex items-center gap-1">
-                                  <Users className="w-3.5 h-3.5" /> {r.band} crowd
+                                  <Users className="w-3.5 h-3.5" /> {r.band}{" "}
+                                  crowd
                                 </span>
                                 {r.noise.shown && (
                                   <span className="flex items-center gap-1">
-                                    <Volume2 className="w-3.5 h-3.5" /> {r.noise.label}
+                                    <Volume2 className="w-3.5 h-3.5" />{" "}
+                                    {r.noise.label}
                                   </span>
                                 )}
                                 <span className="flex items-center gap-1">
-                                  <TreePine className="w-3.5 h-3.5" /> {r.refuges.length}
+                                  <TreePine className="w-3.5 h-3.5" />{" "}
+                                  {r.refuges.length}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5" /> {metres(r.distance_m)}
+                                  <Clock className="w-3.5 h-3.5" />{" "}
+                                  {metres(r.distance_m)}
                                 </span>
                               </div>
                               {lowCoverage && (
@@ -485,7 +580,9 @@ export default function Way() {
               {/* Step 3 — chosen route's detail, same info as Selected.tsx's cards */}
               {modalStep === "detail" &&
                 (() => {
-                  const active = modalRoutes.find((r) => r.id === modalSelectedId);
+                  const active = modalRoutes.find(
+                    (r) => r.id === modalSelectedId
+                  );
                   if (!active) return null;
                   return (
                     <>
@@ -495,7 +592,8 @@ export default function Way() {
                             <Users className="w-4 h-4" /> Crowd level
                           </span>
                           <span className="text-sm flex items-center gap-1.5">
-                            {active.band} <CrowdDot level={bandLevel(active.band)} />
+                            {active.band}{" "}
+                            <CrowdDot level={bandLevel(active.band)} />
                           </span>
                         </div>
                         {active.noise.shown && (
@@ -503,7 +601,9 @@ export default function Way() {
                             <span className="text-sm font-medium flex items-center gap-1.5">
                               <Volume2 className="w-4 h-4" /> Noise
                             </span>
-                            <span className="text-sm text-[var(--color-muted)]">{active.noise.label}</span>
+                            <span className="text-sm text-[var(--color-muted)]">
+                              {active.noise.label}
+                            </span>
                           </div>
                         )}
                         <div className="flex items-center justify-between">
@@ -511,14 +611,17 @@ export default function Way() {
                             <Clock className="w-4 h-4" /> Distance / time
                           </span>
                           <span className="text-sm text-[var(--color-muted)]">
-                            {metres(active.distance_m)} · {minutes(active.duration_s)} min
+                            {metres(active.distance_m)} ·{" "}
+                            {minutes(active.duration_s)} min
                           </span>
                         </div>
                       </div>
 
                       {active.refuges.length > 0 && (
                         <div className="mb-3">
-                          <p className="text-sm font-medium mb-1.5">Quiet spaces along the way</p>
+                          <p className="text-sm font-medium mb-1.5">
+                            Quiet spaces along the way
+                          </p>
                           <ul className="space-y-1.5">
                             {active.refuges.map((rf) => (
                               <li
@@ -526,7 +629,9 @@ export default function Way() {
                                 className="flex items-center justify-between text-sm border border-[var(--color-border)] rounded-lg px-3 py-2"
                               >
                                 <span>{rf.name}</span>
-                                <span className="text-[var(--color-muted)]">{rf.distance_m} m</span>
+                                <span className="text-[var(--color-muted)]">
+                                  {rf.distance_m} m
+                                </span>
                               </li>
                             ))}
                           </ul>
