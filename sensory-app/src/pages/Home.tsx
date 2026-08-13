@@ -169,7 +169,8 @@ export default function Home() {
         <div className="mt-5 md:hidden">
           <p className="text-sm font-medium mb-2">Conditions right now</p>
           <LiveConditionsMap
-            className="flex-1 min-h-0"
+            className="h-32"
+            interactive={false}
             onSummary={setCrowdSummary}
           />
         </div>
@@ -182,7 +183,7 @@ export default function Home() {
       <div className="hidden md:flex md:flex-col p-6 min-h-0">
         <p className="text-sm font-medium mb-3">Conditions right now</p>
         <LiveConditionsMap
-          className="h-32 [&>div]:min-h-0"
+          className="flex-1 min-h-0"
           onSummary={setCrowdSummary}
         />
       </div>

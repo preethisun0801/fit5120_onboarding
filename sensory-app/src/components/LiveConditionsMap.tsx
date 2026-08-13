@@ -250,7 +250,7 @@ export default function LiveConditionsMap({
 
         {/* Full legend — interactive maps (Home desktop panel, /Way) */}
         {interactive && data && (
-          <div className="absolute bottom-2 left-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2.5">
+          <div className="absolute top-2 right-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] leading-tight text-[var(--color-muted)]">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[var(--color-crowd-low)] shrink-0" />
@@ -281,7 +281,7 @@ export default function LiveConditionsMap({
           interaction required, since testers missed a tap-to-reveal legend
           and this audience specifically shouldn't need to hunt for meaning. */}
         {!interactive && (
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[900] bg-[var(--color-card)]/90 backdrop-blur-sm rounded-b-lg px-2 py-1.5 flex items-center justify-center gap-3 text-[10px] text-[var(--color-muted)]">
+          <div className="pointer-events-none absolute bottom-0 top-0 left-0 right-0 z-[900] bg-[var(--color-card)]/90 backdrop-blur-sm rounded-b-lg px-2 py-1.5 flex items-center justify-center gap-3 text-[10px] text-[var(--color-muted)]">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-crowd-low)] shrink-0" />
               Quiet
