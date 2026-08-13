@@ -277,9 +277,7 @@ export default function LiveConditionsMap({
           </div>
         )}
 
-        {/* Condensed legend — compact mobile Home card. Always visible, no
-          interaction required, since testers missed a tap-to-reveal legend
-          and this audience specifically shouldn't need to hunt for meaning. */}
+        {/* Condensed legend — compact mobile Home card.  */}
         {!interactive && (
           <div className="pointer-events-none absolute top-0 left-0 right-0 z-[900] bg-[var(--color-card)]/90 backdrop-blur-sm rounded-t-lg px-2 py-1.5 flex items-center justify-center gap-3 text-[10px] text-[var(--color-muted)]">
             <span className="flex items-center gap-1">
