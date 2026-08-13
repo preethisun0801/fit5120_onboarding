@@ -161,11 +161,7 @@ export default function Options() {
               .map(({ r, d }) => (
                 <li key={r.landmark_id}>
                   <Card
-                    className={`cursor-pointer transition-colors ${
-                      route.recommended
-                        ? "border-2 border-[var(--color-route)] bg-[var(--color-route)]/5"
-                        : "hover:border-[var(--color-accent)]"
-                    }`}
+                    className="cursor-pointer hover:border-[var(--color-accent)] transition-colors"
                     onClick={() => routeToRefuge(r)}
                   >
                     <div className="flex justify-between items-center">
@@ -235,7 +231,11 @@ export default function Options() {
           return (
             <li key={route.id}>
               <Card
-                className="cursor-pointer hover:border-[var(--color-accent)] transition-colors"
+                className={`cursor-pointer transition-colors ${
+                  route.recommended
+                    ? "border-2 border-[var(--color-route)] bg-[var(--color-route)]/5"
+                    : "hover:border-[var(--color-accent)]"
+                }`}
                 onClick={() =>
                   navigate("/Selected", {
                     state: {
