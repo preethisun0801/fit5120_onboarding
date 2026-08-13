@@ -1,5 +1,10 @@
 // sensory-app/src/components/RouteMap.tsx
-import { useLayoutEffect, useRef } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle
+} from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { ScoredRoute } from "../lib/api";
@@ -25,6 +30,9 @@ type Props = {
   start: [number, number];
   end: [number, number];
   showWorst?: boolean;
+};
+export type RouteMapHandle = {
+  openRefuge: (landmarkId: number) => void;
 };
 
 function token(name: string, fallback: string) {
@@ -66,17 +74,23 @@ function refugeIcon(indoor: boolean, fill: string) {
   });
 }
 
-export default function RouteMap({
-  routes,
-  selectedId,
-  onSelect,
-  start,
-  end,
-  showWorst = true
-}: Props) {
+const RouteMap = forwardRef<RouteMapHandle, Props>(function RouteMap(
+  { routes, selectedId, onSelect, start, end, showWorst = true },
+  ref
+) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const drawn = useRef<L.LayerGroup | null>(null);
+  const refugeMarkers = useRef<Map<number, L.Marker>>(new Map());
+
+  useImperativeHandle(ref, () => ({
+    openRefuge(landmarkId: number) {
+      const marker = refugeMarkers.current.get(landmarkId);
+      if (!marker || !map.current) return;
+      map.current.panTo(marker.getLatLng());
+      marker.openPopup();
+    }
+  }));
 
   useLayoutEffect(() => {
     if (!holder.current || map.current) return;
@@ -96,7 +110,7 @@ export default function RouteMap({
         maxZoom: 19
       }
     ).addTo(map.current);
-
+    refugeMarkers.current.clear();
     drawn.current = L.layerGroup().addTo(map.current);
 
     // Leaflet reads the container's size once, synchronously. If the parent's
@@ -207,16 +221,19 @@ export default function RouteMap({
         });
 
       active.refuges.forEach((rf) => {
-        L.marker([rf.lat, rf.lon], { icon: refugeIcon(rf.indoor, accent) })
+        const marker = L.marker([rf.lat, rf.lon], {
+          icon: refugeIcon(rf.indoor, accent)
+        })
           .bindPopup(
             `<div style="font-family:Geist,system-ui,sans-serif;min-width:160px">
-               <strong>${rf.name}</strong><br/>
-               <span style="color:${muted};font-size:13px">
-                 ${rf.indoor ? "Indoor" : "Outdoor"} &middot; ${rf.distance_m} m away
-               </span>
-             </div>`
+         <strong>${rf.name}</strong><br/>
+         <span style="color:${muted};font-size:13px">
+           ${rf.indoor ? "Indoor" : "Outdoor"} &middot; ${rf.distance_m} m away
+         </span>
+       </div>`
           )
           .addTo(group);
+        refugeMarkers.current.set(rf.landmark_id, marker);
       });
 
       map.current.fitBounds(L.polyline(active.geometry).getBounds(), {
@@ -316,4 +333,5 @@ export default function RouteMap({
       </div>
     </div>
   );
-}
+});
+export default RouteMap;
