@@ -239,43 +239,66 @@ export default function LiveConditionsMap({
   }, [data, refuges, showRefuges]);
 
   return (
-    <div className={`flex h-full min-h-[320px] flex-col gap-2 ${className}`}>
-      <div
-        ref={holder}
-        role="application"
-        aria-label="Live sensory conditions across the central city"
-        className={`h-full min-h-[320px] w-full rounded-lg border border-[var(--color-border)] ${
-          !interactive ? "pointer-events-none" : ""
-        }`}
-      />
+    <div className={`flex flex-col gap-2 ${className}`}>
+      <div className="relative flex-1 min-h-0 isolate overflow-hidden rounded-lg border border-[var(--color-border)]">
+        <div
+          ref={holder}
+          role="application"
+          aria-label="Live sensory conditions across the central city"
+          className={`w-full h-full ${!interactive ? "pointer-events-none" : ""}`}
+        />
+
+        {/* Full legend — interactive maps (Home desktop panel, /Way) */}
+        {interactive && data && (
+          <div className="absolute top-2 right-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] leading-tight text-[var(--color-muted)]">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[var(--color-crowd-low)] shrink-0" />
+                Quieter than usual ({data.summary.Low})
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-crowd-moderate)] shrink-0" />
+                About usual ({data.summary.Moderate})
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-[var(--color-crowd-high)] shrink-0" />
+                Busier than usual ({data.summary.High})
+              </span>
+            </div>
+
+            <label className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[var(--color-border)] text-[11px] text-[var(--color-muted)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showRefuges}
+                onChange={(e) => setShowRefuges(e.target.checked)}
+              />
+              Show quiet places
+            </label>
+          </div>
+        )}
+
+        {/* Condensed legend — compact mobile Home card. Always visible, no
+          interaction required, since testers missed a tap-to-reveal legend
+          and this audience specifically shouldn't need to hunt for meaning. */}
+        {!interactive && (
+          <div className="pointer-events-none absolute top-0 left-0 right-0 z-[900] bg-[var(--color-card)]/90 backdrop-blur-sm rounded-t-lg px-2 py-1.5 flex items-center justify-center gap-3 text-[10px] text-[var(--color-muted)]">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-crowd-low)] shrink-0" />
+              Quiet
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-crowd-moderate)] shrink-0" />
+              Usual
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-crowd-high)] shrink-0" />
+              Busy
+            </span>
+          </div>
+        )}
+      </div>
 
       {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
-
-      {interactive && data && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--color-muted)]">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-crowd-low)]" />
-            Quieter than usual ({data.summary.Low})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-crowd-moderate)]" />
-            About usual ({data.summary.Moderate})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[var(--color-crowd-high)]" />
-            Busier than usual ({data.summary.High})
-          </span>
-
-          <label className="flex items-center gap-1.5 ml-auto cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showRefuges}
-              onChange={(e) => setShowRefuges(e.target.checked)}
-            />
-            Show quiet places
-          </label>
-        </div>
-      )}
 
       {interactive && data && (
         <p className="text-xs text-[var(--color-muted)] leading-relaxed">

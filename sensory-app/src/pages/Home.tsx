@@ -14,6 +14,7 @@ import LiveConditionsMap from "../components/LiveConditionsMap";
 import AddressAutocomplete, {
   type LatLon
 } from "../components/AddressAutocomplete.tsx";
+import { isInCbdBounds } from "../lib/bounds";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -30,6 +31,8 @@ export default function Home() {
   const [locating, setLocating] = useState(false);
   const [leaveMode, setLeaveMode] = useState<"now" | "later">("now");
   const [leaveTime, setLeaveTime] = useState("");
+  const fromOutOfBounds = from ? !isInCbdBounds(from.lat, from.lon) : false;
+  const toOutOfBounds = to ? !isInCbdBounds(to.lat, to.lon) : false;
 
   function useCurrentLocation() {
     setError(null);
@@ -67,32 +70,22 @@ export default function Home() {
       setError("Pick a destination from the suggestions list.");
       return;
     }
-
-    let plannedTime: string | null = null;
-    if (leaveMode === "later") {
-      if (!leaveTime) {
-        setError("Pick a departure time, or switch back to Leave now.");
-        return;
-      }
-      const [h, m] = leaveTime.split(":").map(Number);
-      const d = new Date();
-      d.setHours(h, m, 0, 0);
-      if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1); // rolls to tomorrow if that time already passed today
-      plannedTime = d.toISOString();
+    if (fromOutOfBounds || toOutOfBounds) {
+      setError(
+        "This app currently covers Melbourne's CBD only — please choose a starting point and destination within the city centre."
+      );
+      return;
     }
-
     navigate("/Options", {
       state: {
         lat: from.lat,
         lon: from.lon,
         destLat: to.lat,
         destLon: to.lon,
-        destination: to.label,
-        plannedTime
+        destination: to.label
       }
     });
   }
-
   return (
     <div className="md:grid md:grid-cols-[380px_1fr] md:h-[calc(100vh-4rem)]">
       <div className="p-5 md:p-6 md:border-r border-[var(--color-border)] md:overflow-y-auto">
@@ -118,6 +111,12 @@ export default function Home() {
               <LocateFixed className="w-4 h-4" />
             </button>
           </Field>
+          {fromOutOfBounds && (
+            <p className="text-xs text-[var(--color-muted)] mt-1">
+              This is outside Melbourne's CBD — sensor data isn't available here
+              yet.
+            </p>
+          )}
 
           <Field label="To">
             <Navigation className="w-4 h-4 text-[var(--color-muted)] shrink-0" />
@@ -126,6 +125,12 @@ export default function Home() {
               onSelect={(loc) => setTo(loc)}
             />
           </Field>
+          {toOutOfBounds && (
+            <p className="text-xs text-[var(--color-muted)] mt-1">
+              This is outside Melbourne's CBD — sensor data isn't available here
+              yet.
+            </p>
+          )}
 
           <label className="block">
             <span className="text-xs text-[var(--color-muted)] mb-1 block">
@@ -162,14 +167,19 @@ export default function Home() {
           <p className="text-[var(--color-danger)] text-sm mt-3">{error}</p>
         )}
 
-        <Button className="w-full mt-5" onClick={handleFindRoutes}>
+        <Button
+          className="w-full mt-5"
+          onClick={handleFindRoutes}
+          disabled={fromOutOfBounds || toOutOfBounds}
+        >
           Find sensory-aware routes
         </Button>
 
         <div className="mt-5 md:hidden">
           <p className="text-sm font-medium mb-2">Conditions right now</p>
           <LiveConditionsMap
-            className="flex-1 min-h-0"
+            className="h-56"
+            interactive={false}
             onSummary={setCrowdSummary}
           />
         </div>
@@ -182,7 +192,7 @@ export default function Home() {
       <div className="hidden md:flex md:flex-col p-6 min-h-0">
         <p className="text-sm font-medium mb-3">Conditions right now</p>
         <LiveConditionsMap
-          className="h-32 [&>div]:min-h-0"
+          className="flex-1 min-h-0"
           onSummary={setCrowdSummary}
         />
       </div>

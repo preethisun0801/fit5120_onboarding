@@ -1,5 +1,10 @@
 // sensory-app/src/components/RouteMap.tsx
-import { useEffect, useRef } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle
+} from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { ScoredRoute } from "../lib/api";
@@ -25,6 +30,9 @@ type Props = {
   start: [number, number];
   end: [number, number];
   showWorst?: boolean;
+};
+export type RouteMapHandle = {
+  openRefuge: (landmarkId: number) => void;
 };
 
 function token(name: string, fallback: string) {
@@ -66,24 +74,29 @@ function refugeIcon(indoor: boolean, fill: string) {
   });
 }
 
-export default function RouteMap({
-  routes,
-  selectedId,
-  onSelect,
-  start,
-  end,
-  showWorst = true
-}: Props) {
+const RouteMap = forwardRef<RouteMapHandle, Props>(function RouteMap(
+  { routes, selectedId, onSelect, start, end, showWorst = true },
+  ref
+) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const drawn = useRef<L.LayerGroup | null>(null);
+  const refugeMarkers = useRef<Map<number, L.Marker>>(new Map());
 
-  useEffect(() => {
+  useImperativeHandle(ref, () => ({
+    openRefuge(landmarkId: number) {
+      const marker = refugeMarkers.current.get(landmarkId);
+      if (!marker || !map.current) return;
+      map.current.panTo(marker.getLatLng());
+      marker.openPopup();
+    }
+  }));
+
+  useLayoutEffect(() => {
     if (!holder.current || map.current) return;
 
     map.current = L.map(holder.current, {
       zoomControl: true,
-      // Inertia scrolling can feel disorienting; this audience does not need it.
       inertia: false
     }).setView([-37.813, 144.963], 15);
 
@@ -97,16 +110,25 @@ export default function RouteMap({
         maxZoom: 19
       }
     ).addTo(map.current);
-
+    refugeMarkers.current.clear();
     drawn.current = L.layerGroup().addTo(map.current);
 
+    // Leaflet reads the container's size once, synchronously. If the parent's
+    // flex/grid layout hasn't fully settled yet, that first read can be wrong
+    // and never self-corrects. Forcing a re-check on the next frame (and on
+    // any later resize) fixes both the "squished" and "map missing" symptoms.
+    requestAnimationFrame(() => map.current?.invalidateSize());
+    const ro = new ResizeObserver(() => map.current?.invalidateSize());
+    ro.observe(holder.current);
+
     return () => {
+      ro.disconnect();
       map.current?.remove();
       map.current = null;
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!map.current || !drawn.current) return;
 
     const primary = token("--color-primary", "#14171F");
@@ -136,31 +158,31 @@ export default function RouteMap({
       }).addTo(group);
 
       if (showWorst && active.worst_cutoff !== null) {
-  const cutoff = active.worst_cutoff;
-  active.points
-    .filter((p) => p.score !== null && p.score >= cutoff)
-    .forEach((p) => {
-      const radius = 5 + p.confidence * 4; // 5–9px
-      const fillOpacity = 0.55 + p.confidence * 0.35; // 0.55–0.9 — always visible, still gradates
-      const confidencePct = Math.round(p.confidence * 100);
+        const cutoff = active.worst_cutoff;
+        active.points
+          .filter((p) => p.score !== null && p.score >= cutoff)
+          .forEach((p) => {
+            const radius = 5 + p.confidence * 4; // 5–9px
+            const fillOpacity = 0.55 + p.confidence * 0.35; // 0.55–0.9 — always visible, still gradates
+            const confidencePct = Math.round(p.confidence * 100);
 
-      L.circleMarker([p.lat, p.lon], {
-        radius,
-        color: "#8a6a00", // fixed darker amber stroke — stays legible regardless of fill opacity
-        weight: p.confidence >= 0.5 ? 3 : 2,
-        fillColor: highlight,
-        fillOpacity,
-        dashArray: p.confidence < 0.4 ? "3,3" : undefined,
-      })
-        .bindTooltip(
-          p.sensor
-            ? `Busiest stretch — near ${p.sensor} (${confidencePct}% confidence)`
-            : "Busiest stretch",
-          { direction: "top" }
-        )
-        .addTo(group);
-    });
-}
+            L.circleMarker([p.lat, p.lon], {
+              radius,
+              color: "#8a6a00", // fixed darker amber stroke — stays legible regardless of fill opacity
+              weight: p.confidence >= 0.5 ? 3 : 2,
+              fillColor: highlight,
+              fillOpacity,
+              dashArray: p.confidence < 0.4 ? "3,3" : undefined
+            })
+              .bindTooltip(
+                p.sensor
+                  ? `Busiest stretch — near ${p.sensor} (${confidencePct}% confidence)`
+                  : "Busiest stretch",
+                { direction: "top" }
+              )
+              .addTo(group);
+          });
+      }
 
       if (active.basis === "no data") {
         const mid = active.geometry[Math.floor(active.geometry.length / 2)];
@@ -199,20 +221,27 @@ export default function RouteMap({
         });
 
       active.refuges.forEach((rf) => {
-        L.marker([rf.lat, rf.lon], { icon: refugeIcon(rf.indoor, accent) })
+        const marker = L.marker([rf.lat, rf.lon], {
+          icon: refugeIcon(rf.indoor, accent)
+        })
           .bindPopup(
             `<div style="font-family:Geist,system-ui,sans-serif;min-width:160px">
-               <strong>${rf.name}</strong><br/>
-               <span style="color:${muted};font-size:13px">
-                 ${rf.indoor ? "Indoor" : "Outdoor"} &middot; ${rf.distance_m} m away
-               </span>
-             </div>`
+         <strong>${rf.name}</strong><br/>
+         <span style="color:${muted};font-size:13px">
+           ${rf.indoor ? "Indoor" : "Outdoor"} &middot; ${rf.distance_m} m away
+         </span>
+       </div>`
           )
           .addTo(group);
+        refugeMarkers.current.set(rf.landmark_id, marker);
       });
 
       map.current.fitBounds(L.polyline(active.geometry).getBounds(), {
-        padding: [40, 40]
+        // Extra clearance on the top-right specifically, where the legend sits —
+        // uniform padding doesn't guarantee content stays clear of a fixed-position
+        // overlay, since it pads all sides equally regardless of where the overlay is.
+        paddingTopLeft: [40, 40],
+        paddingBottomRight: [110, 40]
       });
     }
 
@@ -225,11 +254,84 @@ export default function RouteMap({
   }, [routes, selectedId, onSelect, start, end, showWorst]);
 
   return (
-    <div
-      ref={holder}
-      role="application"
-      aria-label="Map of walking route options"
-      className="w-full h-full rounded-lg border border-[var(--color-border)]"
-    />
+    <div className="relative h-full isolate overflow-hidden rounded-lg border border-[var(--color-border)]">
+      <div
+        ref={holder}
+        role="application"
+        aria-label="Map of walking route options"
+        className="w-full h-full"
+      />
+
+      <div className="absolute top-2 right-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2 md:p-2.5">
+        {/* Condensed — mobile. Short labels, single row, no wasted height. */}
+        <div className="md:hidden flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] leading-tight text-[var(--color-muted)]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 rounded bg-[var(--color-primary)] shrink-0" />
+            Selected
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 rounded bg-[var(--color-muted)] opacity-40 shrink-0" />
+            Others
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{
+                backgroundColor: "var(--color-route)",
+                border: "1.5px solid #8a6a00"
+              }}
+            />
+            Busiest
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full border border-dashed border-[var(--color-muted)] shrink-0" />
+            No data
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-accent)] shrink-0" />
+            Quiet
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-primary)] shrink-0" />
+            A/B
+          </span>
+        </div>
+
+        {/* Full — desktop, plenty of room */}
+        <div className="hidden md:grid md:grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] leading-tight text-[var(--color-muted)]">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-primary)] shrink-0" />
+            Selected route
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-muted)] opacity-40 shrink-0" />
+            Other options
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-3 h-3 rounded-full shrink-0"
+              style={{
+                backgroundColor: "var(--color-route)",
+                border: "1.5px solid #8a6a00"
+              }}
+            />
+            Busiest stretch
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-[var(--color-muted)] shrink-0" />
+            No sensor nearby
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-accent)] shrink-0" />
+            Quiet space
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-primary)] shrink-0" />
+            Start / destination
+          </span>
+        </div>
+      </div>
+    </div>
   );
-}
+});
+export default RouteMap;

@@ -1,5 +1,6 @@
 // sensory-app/src/pages/Selected.tsx
-import { useState } from "react";
+import { useState, useRef } from "react";
+import RouteMap, { type RouteMapHandle } from "../components/RouteMap";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,7 +11,6 @@ import {
   AlertCircle
 } from "lucide-react";
 import type { ScoredRoute } from "../lib/api";
-import RouteMap from "../components/RouteMap";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import CrowdDot from "../components/ui/CrowdDot";
@@ -28,7 +28,9 @@ type NavState = {
 
 const LOW_COVERAGE_THRESHOLD = 0.3;
 
-function bandToCrowdLevel(band: ScoredRoute["band"]): "low" | "moderate" | "high" | "unknown" {
+function bandToCrowdLevel(
+  band: ScoredRoute["band"]
+): "low" | "moderate" | "high" | "unknown" {
   if (band === "Low") return "low";
   if (band === "Moderate") return "moderate";
   if (band === "High") return "high";
@@ -50,6 +52,7 @@ export default function Selected() {
   const [selectedId, setSelectedId] = useState<number | null>(
     state?.selectedId ?? null
   );
+  const mapRef = useRef<RouteMapHandle>(null);
 
   if (!state || !state.routes?.length) {
     return (
@@ -112,7 +115,7 @@ export default function Selected() {
               <Users className="w-4 h-4" /> Crowd level
             </span>
             <span className="text-sm flex items-center gap-1.5">
-              {active.band} <CrowdDot level={bandToCrowdLevel(active.band) } />
+              {active.band} <CrowdDot level={bandToCrowdLevel(active.band)} />
             </span>
           </div>
 
@@ -162,22 +165,24 @@ export default function Selected() {
             <p className="text-sm font-medium mb-2">
               Quiet spaces along the way
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {active.refuges.map((rf) => (
-                <li
-                  key={rf.landmark_id}
-                  className="flex items-center justify-between text-sm border border-[var(--color-border)] rounded-lg px-3 py-2"
-                >
-                  <span>{rf.name}</span>
-                  <span className="text-[var(--color-muted)]">
-                    {rf.distance_m} m
-                  </span>
+                <li key={rf.landmark_id}>
+                  <button
+                    onClick={() => mapRef.current?.openRefuge(rf.landmark_id)}
+                    className="w-full flex items-center justify-between text-sm border border-[var(--color-border)] rounded-lg px-3 py-2 hover:border-[var(--color-accent)] transition-colors text-left"
+                  >
+                    <span>{rf.name}</span>
+                    <span className="text-[var(--color-muted)]">
+                      {rf.distance_m} m
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
         )}
-      
+
         <Button
           className="w-full mt-2"
           onClick={() => {
@@ -211,6 +216,7 @@ export default function Selected() {
       {/* Map panel */}
       <div className="order-1 md:order-2 h-[45vh] md:h-full p-0 md:p-6">
         <RouteMap
+          ref={mapRef}
           routes={state.routes}
           selectedId={active.id}
           onSelect={setSelectedId}

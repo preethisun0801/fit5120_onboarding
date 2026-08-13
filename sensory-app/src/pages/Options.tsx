@@ -231,7 +231,11 @@ export default function Options() {
           return (
             <li key={route.id}>
               <Card
-                className="cursor-pointer hover:border-[var(--color-accent)] transition-colors"
+                className={`cursor-pointer transition-colors ${
+                  route.recommended
+                    ? "border-2 border-[var(--color-route)] bg-[var(--color-route)]/5"
+                    : "hover:border-[var(--color-accent)]"
+                }`}
                 onClick={() =>
                   navigate("/Selected", {
                     state: {
@@ -251,18 +255,20 @@ export default function Options() {
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-muted-bg)] text-xs font-semibold">
                       {route.rank}
                     </span>
-                    <span className="font-medium">
-                      {route.recommended
-                        ? "Recommended"
-                        : `Option ${route.rank}`}
-                    </span>
+                    {route.recommended ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--color-route)] text-[#3d2f00]">
+                        Recommended
+                      </span>
+                    ) : (
+                      <span className="font-medium">{`Option ${route.rank}`}</span>
+                    )}
                   </div>
                   <span className="text-sm text-[var(--color-muted)]">
                     {formatDuration(route.duration_s)}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--color-muted)]">
                   <span className="flex items-center gap-1.5">
                     <Users className="w-4 h-4" />
                     {route.band} crowd

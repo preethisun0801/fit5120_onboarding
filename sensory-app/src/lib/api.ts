@@ -5,14 +5,16 @@ async function get<T>(
   params?: Record<string, string | number>
 ): Promise<T> {
   const url = new URL(BASE_URL + path);
-  if (params) {
+  if (params)
     Object.entries(params).forEach(([k, v]) =>
       url.searchParams.set(k, String(v))
     );
-  }
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`API error ${res.status}: ${await res.text()}`);
+    const body = await res.json().catch(() => null);
+    const err = new Error(body?.detail ?? `API error ${res.status}`);
+    (err as any).code = body?.code;
+    throw err;
   }
   return res.json();
 }
@@ -105,8 +107,6 @@ export type RouteStep = {
   lat: number;
   lon: number;
 };
-
-
 
 export const api = {
   getRefuges: (tier?: string) =>

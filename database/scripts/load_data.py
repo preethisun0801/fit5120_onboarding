@@ -182,6 +182,23 @@ TIERS = {
 def log(msg):
     print(msg, flush=True)
 
+def ensure_constraints(cur):
+    """
+    Defensive schema patch. New databases created from the current
+    database/init/ta17_onboarding.sql already have this constraint — this
+    check exists for anyone running the script against a database that
+    predates the fix, or was set up some other way, so a duplicate
+    landmark_id/feature_name mismatch can't silently reappear regardless of
+    how the database actually got built.
+    """
+    cur.execute(
+        "SELECT 1 FROM pg_constraint WHERE conname = 'landmark_feature_name_unique'"
+    )
+    if cur.fetchone() is None:
+        log("  Adding missing landmark_feature_name_unique constraint...")
+        cur.execute(
+            "ALTER TABLE landmark ADD CONSTRAINT landmark_feature_name_unique UNIQUE (feature_name)"
+        )
 
 def api_records(dsid, pages=5, **params):
     """Paginated fetch, 100 records per page."""
@@ -671,6 +688,7 @@ def main():
     cur = conn.cursor()
 
     try:
+        ensure_constraints(cur)
         sensors = load_sensor(cur)
         load_pedestrian_realtime(cur)
         load_pedestrian_baseline(cur, sensors)
