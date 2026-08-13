@@ -220,7 +220,11 @@ export default function RouteMap({
       });
 
       map.current.fitBounds(L.polyline(active.geometry).getBounds(), {
-        padding: [40, 40]
+        // Extra clearance on the top-right specifically, where the legend sits —
+        // uniform padding doesn't guarantee content stays clear of a fixed-position
+        // overlay, since it pads all sides equally regardless of where the overlay is.
+        paddingTopLeft: [40, 40],
+        paddingBottomRight: [110, 40]
       });
     }
 
@@ -233,42 +237,83 @@ export default function RouteMap({
   }, [routes, selectedId, onSelect, start, end, showWorst]);
 
   return (
-  <div className="relative h-full isolate overflow-hidden rounded-lg border border-[var(--color-border)]">
-    <div
-      ref={holder}
-      role="application"
-      aria-label="Map of walking route options"
-      className="w-full h-full"
-    />
+    <div className="relative h-full isolate overflow-hidden rounded-lg border border-[var(--color-border)]">
+      <div
+        ref={holder}
+        role="application"
+        aria-label="Map of walking route options"
+        className="w-full h-full"
+      />
 
-    <div className="absolute top-2 right-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2.5">
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] leading-tight text-[var(--color-muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-primary)] shrink-0" />
-          Selected route
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-muted)] opacity-40 shrink-0" />
-          Other options
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: "var(--color-route)", border: "1.5px solid #8a6a00" }} />
-          Busiest stretch
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full border border-dashed border-[var(--color-muted)] shrink-0" />
-          No sensor nearby
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-accent)] shrink-0" />
-          Quiet space
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-primary)] shrink-0" />
-          Start / destination
-        </span>
+      <div className="absolute top-2 right-2 z-[900] max-w-[calc(100%-1rem)] md:max-w-xs bg-[var(--color-card)]/95 backdrop-blur-sm border border-[var(--color-border)] rounded-lg shadow-md p-2 md:p-2.5">
+        {/* Condensed — mobile. Short labels, single row, no wasted height. */}
+        <div className="md:hidden flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] leading-tight text-[var(--color-muted)]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 rounded bg-[var(--color-primary)] shrink-0" />
+            Selected
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 rounded bg-[var(--color-muted)] opacity-40 shrink-0" />
+            Others
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full shrink-0"
+              style={{
+                backgroundColor: "var(--color-route)",
+                border: "1.5px solid #8a6a00"
+              }}
+            />
+            Busiest
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full border border-dashed border-[var(--color-muted)] shrink-0" />
+            No data
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-accent)] shrink-0" />
+            Quiet
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-primary)] shrink-0" />
+            A/B
+          </span>
+        </div>
+
+        {/* Full — desktop, plenty of room */}
+        <div className="hidden md:grid md:grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] leading-tight text-[var(--color-muted)]">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-primary)] shrink-0" />
+            Selected route
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-0.5 rounded bg-[var(--color-muted)] opacity-40 shrink-0" />
+            Other options
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-3 h-3 rounded-full shrink-0"
+              style={{
+                backgroundColor: "var(--color-route)",
+                border: "1.5px solid #8a6a00"
+              }}
+            />
+            Busiest stretch
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full border border-dashed border-[var(--color-muted)] shrink-0" />
+            No sensor nearby
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-accent)] shrink-0" />
+            Quiet space
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-full bg-[var(--color-primary)] shrink-0" />
+            Start / destination
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
